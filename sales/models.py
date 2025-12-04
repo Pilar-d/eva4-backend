@@ -2,7 +2,7 @@
 from django.db import models
 from accounts.models import User
 from products.models import Product, Branch
-from core.models import Company # CRÍTICO: Debe estar importado
+from core.models import Company
 
 class Sale(models.Model):
     """Venta Presencial (POS)."""
@@ -24,16 +24,12 @@ class SaleItem(models.Model):
 
 class Order(models.Model):
     """Venta en Línea (E-commerce)."""
-    # ⚠️ CORRECCIÓN: La orden pertenece a la Compañía, no al Producto.
     company = models.ForeignKey(Company, on_delete=models.PROTECT) 
-    
     cliente_final_name = models.CharField(max_length=100)
     cliente_final_email = models.EmailField()
     
     STATUS_CHOICES = (
-        ('PENDIENTE', 'Pendiente'),
-        ('ENVIADO', 'Enviado'),
-        ('ENTREGADO', 'Entregado'),
+        ('PENDIENTE', 'Pendiente'), ('ENVIADO', 'Enviado'), ('ENTREGADO', 'Entregado'),
     )
     estado = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDIENTE')
     total = models.DecimalField(max_digits=10, decimal_places=2)
@@ -54,11 +50,9 @@ class CartItem(models.Model):
 
 class ClientRequest(models.Model):
     """Solicitud de nuevo cliente desde la web pública (para Super Admin)."""
-    company_name = models.CharField(max_length=100)
-    rut = models.CharField(max_length=12)
-    contact_email = models.EmailField()
-    plan_name = models.CharField(max_length=20)
-    status = models.CharField(max_length=20, default='PENDIENTE') 
+    company_name = models.CharField(max_length=100); rut = models.CharField(max_length=12)
+    contact_email = models.EmailField(); plan_name = models.CharField(max_length=20)
+    status = models.CharField(max_length=20, default='PENDIENTE')
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):

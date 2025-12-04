@@ -1,72 +1,99 @@
 {% extends 'base.html' %}
-{% block title %}Reporte de Ventas{% endblock %}
+{% block title %}Reportes de Ventas{% endblock %}
 
 {% block content %}
-    <h1>📊 Reporte de Ventas por Período</h1>
-    <p class="lead">Genera el listado de ventas (POS y E-commerce) para el análisis.</p>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <header class="mb-4">
+        <h1>📊 Reporte de Ventas por Período</h1>
+        <p class="lead text-muted">Genera informes de ventas por período y sucursal para la compañía **{{ user.company.name }}**.</p>
+    </header>
     <hr>
 
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm mb-5">
         <div class="card-body">
-            <h5 class="card-title">Filtros de Reporte</h5>
-            <form id="report-form" method="get" class="row g-3">
+            <h5 class="card-title"><i class="fas fa-filter"></i> Opciones de Filtrado</h5>
+            
+            <form method="get" class="row g-3">
+                
                 <div class="col-md-4">
                     <label for="date_from" class="form-label">Fecha Desde</label>
-                    <input type="date" class="form-control" name="date_from" id="date_from" value="{{ date_from }}">
+                    <input type="date" class="form-control" name="date_from" id="date_from" value="{{ date_from|default:'' }}">
                 </div>
+                
                 <div class="col-md-4">
                     <label for="date_to" class="form-label">Fecha Hasta</label>
-                    <input type="date" class="form-control" name="date_to" id="date_to" value="{{ date_to }}">
+                    <input type="date" class="form-control" name="date_to" id="date_to" value="{{ date_to|default:'' }}">
                 </div>
+                
                 <div class="col-md-4">
                     <label for="branch_id" class="form-label">Sucursal</label>
                     <select class="form-select" name="branch_id" id="branch_id">
                         <option value="">Todas las Sucursales</option>
                         {% for branch in branches %}
-                            <option value="{{ branch.id }}" {% if branch.id|slugify == selected_branch_id|slugify %}selected{% endif %}>
+                            <option value="{{ branch.id }}" {% if selected_branch_id|stringformat:"s" == branch.id|stringformat:"s" %}selected{% endif %}>
                                 {{ branch.name }}
                             </option>
                         {% endfor %}
                     </select>
                 </div>
+                
                 <div class="col-12 text-end">
-                    <button type="submit" class="btn btn-success">Generar Reporte</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-search"></i> Generar Reporte</button>
                 </div>
             </form>
         </div>
     </div>
     
-    {% if report_data %}
-    <h2 class="mt-5">Resultados ({{ report_data|length }} Transacciones)</h2>
-    <div class="alert alert-primary">
-        Total de Ventas en el Período: <strong>${{ total_ventas|floatformat:0 }}</strong>
-    </div>
+    {% if is_filtered %}
+        
+        {% if report_data %}
+            <h2 class="mt-4">Resultados de Ventas</h2>
+            <div class="alert alert-primary">
+                Total de Ventas en el Período: **${{ total_ventas|floatformat:0 }}**
+            </div>
 
-    <table class="table table-bordered table-striped">
-        <thead class="table-info">
-            <tr>
-                <th>ID Venta</th>
-                <th>Sucursal</th>
-                <th>Vendedor</th>
-                <th>Método Pago</th>
-                <th>Total</th>
-                <th>Fecha</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for sale in report_data %}
-            <tr>
-                <td>{{ sale.id }}</td>
-                <td>{{ sale.branch.name }}</td>
-                <td>{{ sale.user.username }}</td>
-                <td>{{ sale.payment_method }}</td>
-                <td><span class="fw-bold">${{ sale.total|floatformat:0 }}</span></td>
-                <td>{{ sale.created_at|date:"Y-m-d H:i" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% elif is_filtered %}
-        <div class="alert alert-warning">No se encontraron ventas para los filtros seleccionados.</div>
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle">
+                    <thead class="table-info">
+                        <tr>
+                            <th>ID Venta</th>
+                            <th>Sucursal</th>
+                            <th>Vendedor</th>
+                            <th>Método Pago</th>
+                            <th>Total</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in report_data %}
+                        <tr>
+                            <td>{{ sale.id }}</td>
+                            <td>{{ sale.branch.name }}</td>
+                            <td>{{ sale.user.username }}</td>
+                            <td><span class="badge bg-secondary">{{ sale.payment_method }}</span></td>
+                            <td><span class="fw-bold">${{ sale.total|floatformat:0 }}</span></td>
+                            <td>{{ sale.created_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-warning">No se encontraron ventas para los filtros seleccionados.</div>
+        {% endif %}
+        
+    {% else %}
+        <div class="alert alert-secondary text-center">
+            Utiliza el formulario superior para generar un reporte de ventas por período.
+        </div>
     {% endif %}
+    
+{% endblock %}
+
+{% block extra_js %}
 {% endblock %}

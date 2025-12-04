@@ -3,23 +3,14 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 
-# Importamos todas las vistas necesarias (DRF ViewSets y Funciones de Templates)
+# ⚠️ Importamos TODAS las vistas necesarias, incluyendo la vista de detalle de suscripción
 from .views import (
     CompanyViewSet, 
     company_create_from_request_view, 
     company_list_template_view, 
     subscription_list_template_view,
-    # ⚠️ ASUMIMOS la vista de detalle está en .views, aunque no la habíamos escrito.
     subscription_detail_view 
 ) 
-from .views import (
-    CompanyViewSet, 
-    company_create_from_request_view, 
-    company_list_template_view, 
-    subscription_list_template_view,
-    subscription_detail_view # <--- THIS FUNCTION IS MISSING
-)
-
 
 app_name = 'core'
 
@@ -39,8 +30,6 @@ urlpatterns = [
     path('companies/<int:pk>/subscribe/', 
           CompanyViewSet.as_view({'post': 'subscribe'}), 
           name='company-subscribe-api'),
-
-    path('subscriptions/<int:pk>/edit/', subscription_detail_view, name='subscription_detail'),
             
     # -----------------------------------------------
     # 2. Vistas de Templates (Super Admin Flow)
@@ -52,13 +41,11 @@ urlpatterns = [
     # RUTA DE LISTADO DE SUSCRIPCIONES (Template HTML)
     path('subscriptions/', subscription_list_template_view, name='subscription_list'), 
     
-    # ⚠️ CORRECCIÓN: RUTA DE DETALLE/EDICIÓN DE SUSCRIPCIÓN (Template HTML)
+    # ⚠️ FIX: RUTA DE DETALLE/EDICIÓN DE SUSCRIPCIÓN (Template HTML)
     path('subscriptions/<int:pk>/edit/', subscription_detail_view, name='subscription_detail'),
     
     # RUTA DE CREACIÓN DESDE SOLICITUD (Template HTML)
     path('company/create/from_request/<int:pk>/', 
           company_create_from_request_view, 
           name='company_create_from_request'),
-
-    
 ]

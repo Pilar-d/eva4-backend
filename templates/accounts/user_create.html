@@ -2,145 +2,182 @@
 {% block title %}Crear Nuevo Usuario{% endblock %}
 
 {% block content %}
-    <header class="mb-4">
-        <h1><i class="fas fa-user-plus"></i> Gestión de Personal</h1>
-        <p class="lead text-muted">
+<header class="mb-4">
+    <h1><i class="fas fa-user-plus"></i> Gestión de Personal</h1>
+    <p class="lead text-muted">
+        {% if user.role == 'super_admin' %}
+            Crea una nueva cuenta de <strong>Administrador Cliente (Tenant)</strong> y asígnale su empresa.
+        {% elif user.role == 'admin_cliente' %}
+            Crea cuentas de <strong>Gerentes</strong> o <strong>Vendedores</strong> para la compañía:
+            <strong>{{ user.company.name }}</strong>.
+        {% endif %}
+    </p>
+</header>
+
+<hr>
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" 
+              action="{% url 'accounts:user_create_api' %}" 
+              class="needs-validation"
+              novalidate>
+              
+            {% csrf_token %}
+
+            <!-- USERNAME -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Nombre de Usuario (Login)</label>
+                <input type="text" 
+                       name="username" 
+                       class="form-control" 
+                       value="{{ post_data.username|default:'' }}" 
+                       required>
+            </div>
+
+            <!-- EMAIL -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Correo Electrónico</label>
+                <input type="email" 
+                       name="email" 
+                       class="form-control" 
+                       value="{{ post_data.email|default:'' }}" 
+                       required>
+            </div>
+
+            <!-- RUT -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">RUT Chileno</label>
+                <input type="text" 
+                       name="rut" 
+                       class="form-control"
+                       placeholder="12.345.678-9"
+                       value="{{ post_data.rut|default:'' }}"
+                       pattern="[0-9]{1,2}\.?[0-9]{3}\.?[0-9]{3}-[0-9Kk]"
+                       required>
+            </div>
+
+            <!-- PASSWORD -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Contraseña</label>
+                <input type="password" 
+                       name="password" 
+                       class="form-control" 
+                       required>
+            </div>
+
+            <!-- ROLE -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Rol a Asignar</label>
+                <select name="role" class="form-select" id="id_role" required>
+                    <option value="">-- Seleccionar Rol --</option>
+                    {% for role_code, role_name in allowed_roles %}
+                        <option value="{{ role_code }}"
+                                {% if post_data.role == role_code %}selected{% endif %}>
+                                {{ role_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- BRANCH (solo Admin Cliente) -->
+            {% if user.role == 'admin_cliente' %}
+            <div class="mb-3 border p-3 bg-light rounded" id="branch-container">
+                <label class="form-label fw-bold">Sucursal</label>
+                <select name="branch" id="id_branch" class="form-select">
+                    <option value="">-- Seleccionar Sucursal --</option>
+                    {% for branch in branches %}
+                        <option value="{{ branch.id }}"
+                                {% if post_data.branch == branch.id|stringformat:"s" %}
+                                    selected
+                                {% endif %}>
+                            {{ branch.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">Sucursal obligatoria para Gerentes y Vendedores.</small>
+            </div>
+            {% endif %}
+
+            <!-- COMPANY (solo SuperAdmin) -->
             {% if user.role == 'super_admin' %}
-                Crea una nueva cuenta de Administrador Cliente (Tenant) y asigna su compañía.
-            {% elif user.role == 'admin_cliente' %}
-                Crea cuentas de Gerente o Vendedor para tu compañía: <strong>{{ user.company.name }}</strong>.
+            <div class="mb-3 border p-3 bg-light rounded">
+                <label class="form-label fw-bold">Asignar Compañía (Tenant)</label>
+                <select name="company" class="form-select" required>
+                    <option value="">-- Seleccionar Compañía --</option>
+                    {% for company in companies %}
+                        <option value="{{ company.id }}"
+                                {% if post_data.company == company.id|stringformat:"s" %}
+                                    selected
+                                {% endif %}>
+                            {{ company.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
             {% endif %}
-        </p>
-    </header>
-    <hr>
-    
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
 
-            <form method="post" action="{% url 'accounts:user_create_api' %}" class="needs-validation" novalidate> 
-                {% csrf_token %}
+            <hr>
+            <div class="text-end">
+                <button class="btn btn-success btn-lg">
+                    <i class="fas fa-save"></i> Crear Usuario
+                </button>
+            </div>
 
-                <div class="mb-3">
-                    <label for="id_username" class="form-label">Nombre de Usuario (Login)</label>
-                    <input type="text" name="username" id="id_username" class="form-control" value="{{ post_data.username|default:'' }}" required>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="id_email" class="form-label">Correo Electrónico</label>
-                    <input type="email" name="email" id="id_email" class="form-control" value="{{ post_data.email|default:'' }}" required>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="id_rut" class="form-label">RUT Chileno (Ej: 12345678-K)</label>
-                    <input type="text" name="rut" id="id_rut" class="form-control" value="{{ post_data.rut|default:'' }}" placeholder="12.345.678-9" pattern="[0-9]{1,2}\.?[0-9]{3}\.?[0-9]{3}-[0-9Kk]" title="Formato esperado: X.XXX.XXX-X" required>
-                </div>
-
-                <div class="mb-3">
-                    <label for="id_password" class="form-label">Contraseña</label>
-                    <input type="password" name="password" id="id_password" class="form-control" required>
-                </div>
-
-                <div class="mb-3">
-                    <label for="id_role" class="form-label">Rol a Asignar</label>
-                    <select name="role" id="id_role" class="form-select" required>
-                        <option value="">-- Seleccionar Rol --</option>
-                        {% for role_code, role_name in allowed_roles %}
-                            <option value="{{ role_code }}" {% if post_data.role == role_code %}selected{% endif %}>{{ role_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                {% if user.role == 'admin_cliente' %}
-                    <div class="mb-3 border p-3 rounded bg-light" id="branch-selection-container">
-                        <label for="id_branch" class="form-label fw-bold">Sucursal a Asignar</label>
-                        <select name="branch" id="id_branch" class="form-select">
-                            <option value="">-- Seleccionar Sucursal --</option>
-                            {% for branch in branches %}
-                                <option value="{{ branch.id }}" {% if post_data.branch|default_if_none:""|slugify == branch.id|slugify %}selected{% endif %}>
-                                    {{ branch.name }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted" id="branch-help-text">Sucursal obligatoria para Gerentes y Vendedores.</small>
-                    </div>
-                {% endif %}
-
-                {% if user.role == 'super_admin' %}
-                    <div class="mb-3 border p-3 rounded bg-light">
-                        <label for="id_company" class="form-label fw-bold">Compañía (Tenant)</label>
-                        <select name="company" id="id_company" class="form-select" required>
-                            <option value="">-- Seleccionar Compañía --</option>
-                            {% for company in companies %}
-                                <option value="{{ company.id }}" {% if post_data.company|default_if_none:""|slugify == company.id|slugify %}selected{% endif %}>
-                                    {{ company.name }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">Asignar el Tenant al nuevo Admin Cliente.</small>
-                    </div>
-                {% endif %}
-
-                <hr class="my-4">
-                <div class="d-flex justify-content-end">
-                    <button class="btn btn-success btn-lg" type="submit">
-                        <i class="fas fa-save"></i> Crear Nuevo Usuario
-                    </button>
-                </div>
-            </form>
-        </div>
+        </form>
     </div>
+</div>
+
 {% endblock %}
+
 
 {% block extra_js %}
 <script>
     (function () {
         'use strict'
-        var form = document.querySelector('.needs-validation');
-        var roleSelect = document.getElementById('id_role');
-        var branchSelect = document.getElementById('id_branch');
 
-        // Función para manejar la validación condicional de la sucursal
+        const form = document.querySelector('.needs-validation');
+        const roleSelect = document.getElementById('id_role');
+        const branchSelect = document.getElementById('id_branch');
+
         function updateBranchRequirement() {
-            if (!branchSelect) return; // Salir si no existe (es decir, si es Super Admin)
-            
-            const selectedRole = roleSelect.value;
-            const mandatoryRoles = ['gerente', 'vendedor'];
+            if (!branchSelect) return;
 
-            if (mandatoryRoles.includes(selectedRole)) {
+            const selectedRole = roleSelect.value;
+            const requiredRoles = ['gerente', 'vendedor'];
+
+            if (requiredRoles.includes(selectedRole)) {
                 branchSelect.required = true;
-                branchSelect.classList.add('is-required-conditional');
             } else {
                 branchSelect.required = false;
-                branchSelect.classList.remove('is-required-conditional');
             }
         }
 
-        // Llamar la función al cargar la página y al cambiar el rol
         updateBranchRequirement();
         roleSelect.addEventListener('change', updateBranchRequirement);
 
-        // Validacion de formulario (incluye la validación condicional)
+        // Validación submit
         form.addEventListener('submit', function (event) {
-            
-            // Validar la Sucursal antes de la validación estándar de Bootstrap
-            if (branchSelect && branchSelect.required && branchSelect.value === "") {
-                branchSelect.setCustomValidity("Debe seleccionar una sucursal para este rol.");
+            if (branchSelect && branchSelect.required && !branchSelect.value) {
+                branchSelect.setCustomValidity("Debe seleccionar una sucursal.");
             } else if (branchSelect) {
-                 branchSelect.setCustomValidity("");
+                branchSelect.setCustomValidity("");
             }
 
             if (!form.checkValidity()) {
                 event.preventDefault();
                 event.stopPropagation();
             }
+            
             form.classList.add('was-validated');
-        }, false)
-    })()
+        });
+    })();
 </script>
 {% endblock %}

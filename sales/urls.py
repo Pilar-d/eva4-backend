@@ -1,7 +1,7 @@
 # sales/urls.py
 
 from django.urls import path
-from rest_framework.routers import DefaultRouter # Included for completeness
+from rest_framework.routers import DefaultRouter 
 from django.urls import include 
 
 # Importamos las clases ViewSet de DRF (desde .views)
@@ -11,7 +11,8 @@ from .views_templates import (
     client_request_list_view, 
     request_delete_view, 
     pos_sale_view,
-    purchase_create_template_view # <-- Vista para el formulario GET
+    purchase_create_template_view,
+    sales_report_view # <-- Vista que renderiza sales/report_sales.html
 )
 
 # Definimos el namespace 'sales' para ser usado en {% url 'sales:...' %}
@@ -38,27 +39,30 @@ urlpatterns = [
          name='request_delete'),
          
     # 4. Creación de Compra/Ingreso de Stock - Template (GET)
-    # Ejemplo: /purchases/1/create/ (Muestra el formulario para el proveedor ID 1)
     path('purchases/<int:pk>/create/', 
          purchase_create_template_view, 
-         name='purchase_create'), # <-- Usado por el template products/supplier_list.html
+         name='purchase_create'), 
 
+    # 5. REPORTE DE VENTAS (HTML) - SOLUCIÓN AL REQUERIMIENTO
+    path('reports/sales/', 
+         sales_report_view, 
+         name='report-sales'), 
+    
     # ------------------------------------------------
     # B. API ENDPOINTS (DRF ViewSets)
     # ------------------------------------------------
     
-    # 5. Ventas (POS) y Reportes de Ventas API
+    # 6. Ventas (POS) y Reportes de Ventas API 
     path('sales/', 
          SaleViewSet.as_view({'post': 'create', 'get': 'list'}), 
          name='sale-list-create'),
 
-    # 6. Compras / Ingreso de Stock API (POST para procesar el formulario)
-    # Rutas: /api/purchases/ (API de procesamiento, renombrada a -api)
+    # 7. Compras / Ingreso de Stock API 
     path('purchases/', 
          PurchaseViewSet.as_view({'post': 'create'}), 
          name='purchase-create-api'),
 
-    # 7. Carrito / E-commerce API
+    # 8. Carrito / E-commerce API
     path('cart/add/', 
          CartViewSet.as_view({'post': 'add_item'}), 
          name='cart-add'),
@@ -67,12 +71,8 @@ urlpatterns = [
          CartViewSet.as_view({'post': 'checkout'}), 
          name='cart-checkout'),
          
-    # 8. Reportes Mínimos API
+    # 9. Reportes Mínimos API (JSON para Stock)
     path('reports/stock/', 
          ReportViewSet.as_view({'get': 'stock_report'}), 
-         name='report-stock'),
-         
-    path('reports/sales/', 
-         ReportViewSet.as_view({'get': 'sales_report'}), 
-         name='report-sales'),
+         name='report-stock-api'), 
 ]

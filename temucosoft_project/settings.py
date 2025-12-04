@@ -28,6 +28,8 @@ SECRET_KEY = 'django-insecure-v*)fby49sx(+wcjjq!7@w@r!dp+4ui)1prggk61mo9cebun)g*
 DEBUG = True
 
 ALLOWED_HOSTS = []
+#ALLOWED_HOSTS = ['3.151.132.166', 'temucosoft-d.duckdns.org']
+#STATIC_ROOT = '/var/www/html/logistica/static'
 
 
 # Application definition

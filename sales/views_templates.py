@@ -3,17 +3,16 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.utils.decorators import method_decorator
 from django.db.models import F, Sum
 from django.contrib import messages
 from django.urls import reverse
-from django.utils import timezone # Importado para current_date
+from django.utils import timezone 
 
-# Importamos las funciones de chequeo de roles
+# Importamos las funciones de chequeo de roles (desde accounts/permissions.py)
 from accounts.permissions import is_super_admin_check, is_vendedor_check, is_admin_cliente_or_gerente_check 
 
 # Importar modelos
-from .models import CartItem, ClientRequest 
+from .models import CartItem, ClientRequest, Sale 
 from products.models import Product, Branch, Inventory, Supplier 
 from accounts.models import User 
 from core.models import Company
@@ -153,7 +152,7 @@ def request_delete_view(request, pk):
         solicitud = get_object_or_404(ClientRequest, pk=pk)
         
         if solicitud.status != 'PENDIENTE':
-             messages.error(request, f"La solicitud N°{pk} ya fue {solicitud.status} y no puede ser eliminada.")
+             messages.error(request, f"La solicitud N°{pk} ya fue procesada.")
         else:
              solicitud.delete()
              messages.success(request, f"Solicitud N°{pk} de {solicitud.company_name} eliminada con éxito.")
@@ -164,33 +163,27 @@ def request_delete_view(request, pk):
 @user_passes_test(is_admin_cliente_or_gerente_check)
 def purchase_create_template_view(request, pk):
     """
-    Muestra el formulario para registrar el ingreso de stock (Purchase).
+    Muestra el formulario para registrar el ingreso de stock.
     Requiere el ID del proveedor (pk) y lo pasa al template, junto con listas de Productos y Sucursales.
     """
-    # Aseguramos importaciones locales
-    from products.models import Supplier, Branch, Product 
+    from products.models import Supplier, Branch, Product # Aseguramos importaciones locales
 
     if response := check_company(request.user, request):
         return response
     
     user = request.user
     
-    # 2. Obtener el proveedor específico
     supplier = get_object_or_404(Supplier, pk=pk, company=user.company)
     
-    # 3. Obtener listas de productos y sucursales del TENANT para los dropdowns
     branches = Branch.objects.filter(company=user.company).order_by('name')
     products = Product.objects.filter(company=user.company).order_by('name')
     
-    # 4. Preparar el contexto
     context = {
         'supplier': supplier,
         'branches': branches, 
         'products': products, 
         'current_date': timezone.now().strftime('%Y-%m-%d')
     }
-    
-    # 5. Renderizar el template
     return render(request, 'sales/purchase_form.html', context)
 
 
@@ -202,6 +195,7 @@ def purchase_create_template_view(request, pk):
 def pos_sale_view(request):
     """
     Renders the Point of Sale (POS) interface.
+    Busca la sucursal del vendedor para filtrar productos.
     """
     from django.db.models import F 
     
@@ -209,13 +203,12 @@ def pos_sale_view(request):
     branch = None
     products_with_stock = []
 
-    # Logic: Determine the seller's branch
     if user.company:
-        # Asumimos la sucursal asignada para el POS es la primera de la compañía
+        # FIX: Busca la primera sucursal disponible de la compañía
         branch = Branch.objects.filter(company=user.company).first()
         
         if branch:
-            # Get products with stock in that branch (annotated stock)
+            # Obtiene productos con stock positivo en esa sucursal
             products_with_stock = Product.objects.filter(
                 company=user.company,
                 inventory__branch=branch,
@@ -230,3 +223,56 @@ def pos_sale_view(request):
     }
     
     return render(request, 'sales/pos_sale.html', context)
+
+
+# ----------------------------------------------------
+# 8. VISTA DE REPORTES (sales_report_view)
+# ----------------------------------------------------
+
+@user_passes_test(is_admin_cliente_or_gerente_check)
+def sales_report_view(request):
+    """
+    Muestra la interfaz HTML para generar el Reporte de Ventas.
+    """
+    from django.db.models import Sum 
+    from products.models import Branch 
+    from .models import Sale 
+    
+    if response := check_company(request.user, request):
+        return response
+    
+    user = request.user
+    
+    # Obtener filtros de la URL (GET request)
+    branch_id = request.GET.get('branch_id')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+
+    # Consulta base filtrada por Tenancy (Ventas POS)
+    sales_query = Sale.objects.filter(branch__company=user.company).select_related('branch', 'user').order_by('-created_at')
+    
+    # Aplicar filtros
+    if branch_id:
+        sales_query = sales_query.filter(branch_id=branch_id)
+    if date_from:
+        sales_query = sales_query.filter(created_at__date__gte=date_from)
+    if date_to:
+        sales_query = sales_query.filter(created_at__date__lte=date_to)
+
+    # Agregación para el resumen
+    total_ventas = sales_query.aggregate(total=Sum('total'))['total'] or 0
+    
+    # Obtener sucursales para el dropdown de filtro
+    branches = Branch.objects.filter(company=user.company).order_by('name')
+
+    context = {
+        'branches': branches,
+        'report_data': sales_query,
+        'total_ventas': total_ventas,
+        'date_from': date_from,
+        'date_to': date_to,
+        'selected_branch_id': branch_id,
+        'is_filtered': bool(branch_id or date_from or date_to),
+    }
+    
+    return render(request, 'sales/report_sales.html', context)

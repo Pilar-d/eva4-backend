@@ -3,13 +3,12 @@
 
 {% block content %}
     <style>
-        /* Estilos CSS para optimizar la vista POS */
         .pos-container {
             max-width: 1300px;
             margin: auto;
         }
         .product-grid {
-            max-height: 70vh; /* Altura máxima para la lista de productos */
+            max-height: 70vh; 
             overflow-y: auto;
         }
         .receipt-summary {
@@ -17,11 +16,26 @@
             display: flex;
             flex-direction: column;
         }
+        .product-item {
+            border-left: 5px solid var(--bs-primary);
+            transition: transform 0.1s;
+        }
+        .product-item:hover {
+            transform: scale(1.03);
+            background-color: var(--bs-light);
+        }
     </style>
     
     <div class="pos-container">
-        <h1>Punto de Venta (POS)</h1>
-        <p class="lead text-success">Bienvenido, Vendedor. Sucursal de trabajo: **{{ branch.name|default:"[Sucursal no asignada]" }}**</p>
+        <h1><i class="fas fa-cash-register"></i> Punto de Venta (POS)</h1>
+        <p class="lead text-success">
+            Vendedor: **{{ user.username }}**. Sucursal: 
+            <strong>{{ branch.name|default:"[Sucursal no asignada]" }}</strong>
+        </p>
+        
+        {% if not branch %}
+            <div class="alert alert-danger">Error: No se encontró una sucursal de trabajo asignada al vendedor.</div>
+        {% endif %}
         
         <div class="row">
             
@@ -32,12 +46,17 @@
                         <input type="text" id="product-search" class="form-control mb-3" placeholder="Buscar por SKU o Nombre">
                         
                         <div class="product-grid p-2 border rounded">
-                            <h6>Productos disponibles (Inventario de {{ branch.name }})</h6>
-                            <div id="product-list" class="row row-cols-md-3 g-2">
+                            <h6>Productos disponibles (Stock > 0)</h6>
+                            <div id="product-list" class="row row-cols-md-3 g-3">
                                 
                                 {% for product in products %}
                                 <div class="col">
-                                    <div class="card product-item" data-id="{{ product.id }}" data-price="{{ product.price }}" data-name="{{ product.name }}" style="cursor: pointer;">
+                                    <div class="card product-item" 
+                                            data-id="{{ product.id }}" 
+                                            data-price="{{ product.price }}" 
+                                            data-name="{{ product.name }}" 
+                                            data-stock="{{ product.inventory_stock }}"
+                                            style="cursor: pointer;">
                                         <div class="card-body p-2">
                                             <p class="mb-0 fw-bold">{{ product.name|truncatechars:18 }}</p>
                                             <p class="mb-0 small text-muted">Stock: {{ product.inventory_stock }}</p>
@@ -58,7 +77,7 @@
             <div class="col-md-5">
                 <div class="card receipt-summary shadow-lg">
                     <div class="card-header bg-success text-white">
-                        Recibo de Venta (POS)
+                        Recibo de Venta
                     </div>
                     <div class="card-body p-0 d-flex flex-column">
                         
@@ -97,13 +116,20 @@
 
 {% block extra_js %}
 <script>
-    let currentReceipt = {}; // Almacena {product_id: {name, price, quantity}}
+    let currentReceipt = {}; // Almacena {product_id: {name, price, quantity, max_stock}}
     let total = 0;
     const receiptItemsList = document.getElementById('receipt-items');
     const receiptTotalDisplay = document.getElementById('receipt-total');
     const finalizeBtn = document.getElementById('finalize-sale-btn');
     const emptyMessage = document.getElementById('empty-cart-message');
-    const branchId = '{{ branch.id|default:"null" }}'; // Obtener el ID de la sucursal del vendedor
+    const branchId = '{{ branch.id|default:"null" }}'; 
+    const sellerId = '{{ user.id|default:"null" }}'; 
+    const apiSalesEndpoint = "{% url 'sales:sale-list-create' %}";
+
+    // Función para obtener el token JWT
+    function getJwtToken() {
+        return localStorage.getItem('access_token');
+    }
 
     function updateReceipt() {
         receiptItemsList.innerHTML = '';
@@ -130,13 +156,20 @@
         }
 
         receiptTotalDisplay.textContent = `$${total.toFixed(0)}`;
-        finalizeBtn.disabled = itemCount === 0;
+        // Deshabilitar si no hay ítems o si no hay sucursal asignada
+        finalizeBtn.disabled = itemCount === 0 || branchId === 'null';
         emptyMessage.style.display = itemCount === 0 ? 'block' : 'none';
 
         // Reasignar eventos a los botones de eliminar
         document.querySelectorAll('.remove-item').forEach(btn => {
             btn.addEventListener('click', function() {
-                delete currentReceipt[this.dataset.id];
+                // Si la cantidad es mayor a 1, solo se resta. Si es 1, se elimina del recibo.
+                const itemId = this.dataset.id;
+                if (currentReceipt[itemId].quantity > 1) {
+                    currentReceipt[itemId].quantity -= 1;
+                } else {
+                    delete currentReceipt[itemId];
+                }
                 updateReceipt();
             });
         });
@@ -148,69 +181,95 @@
             const id = this.dataset.id;
             const price = parseFloat(this.dataset.price);
             const name = this.dataset.name;
+            const maxStock = parseInt(this.dataset.stock);
+
+            if (branchId === 'null') {
+                alert('Debe tener una sucursal asignada para realizar ventas.');
+                return;
+            }
 
             if (currentReceipt[id]) {
+                if (currentReceipt[id].quantity >= maxStock) {
+                    alert('Stock máximo alcanzado para este producto.');
+                    return;
+                }
                 currentReceipt[id].quantity += 1;
             } else {
-                currentReceipt[id] = { name, price, quantity: 1 };
+                if (maxStock <= 0) {
+                    alert('No hay stock disponible para este producto.');
+                    return;
+                }
+                currentReceipt[id] = { name, price, quantity: 1, maxStock };
             }
             updateReceipt();
         });
     });
 
     // 2. Manejo de la Finalización de Venta (API POST)
-    finalizeBtn.addEventListener('click', function() {
-        if (branchId === 'null') {
-            alert('Error: El vendedor no tiene una sucursal asignada.');
-            return;
-        }
-
-        if (total === 0) {
-            alert('El recibo está vacío.');
-            return;
-        }
+    finalizeBtn.addEventListener('click', async function() {
+        if (branchId === 'null' || sellerId === 'null') return;
 
         const paymentMethod = document.getElementById('payment-method').value;
 
-        // Construir la lista de ítems para el API
         const saleItems = Object.keys(currentReceipt).map(id => ({
             product: parseInt(id),
             quantity: currentReceipt[id].quantity,
-            price: currentReceipt[id].price // Precio de venta al momento de la transacción
+            price: currentReceipt[id].price 
         }));
 
         const saleData = {
-    branch: parseInt(branchId),
-    user: parseInt("{{ user.id }}"), // Aseguramos que es un número
-    items: saleItems,
-    total: total,
-    payment_method: paymentMethod,
-    created_at: new Date().toISOString() // Validación: no debe ser futuro 
-};
-    //[cite_start]created_at: new Date().toISOString() // Validación: no debe ser futuro [cite: 90]
-    
-        console.log('Datos a enviar a /api/sales/:', saleData);
+            branch: parseInt(branchId),
+            user: parseInt(sellerId), 
+            items: saleItems,
+            total: total,
+            payment_method: paymentMethod,
+            created_at: new Date().toISOString()
+        };
+        
+        // Determinar headers: Preferir JWT para la API
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + getJwtToken() 
+        };
+        
+        try {
+            const response = await fetch(apiSalesEndpoint, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(saleData)
+            });
 
-        // *** SIMULACIÓN DE LLAMADA API (aquí iría el fetch con el token JWT) ***
-        // El endpoint requerido es POST /api/sales/ [cite: 161]
-        
-        alert(`Venta registrada con éxito (Simulación). Total: $${total.toFixed(0)}. Método: ${paymentMethod}`);
-        
-        // Limpiar después de la venta exitosa
-        currentReceipt = {};
-        updateReceipt();
+            const responseData = await response.json();
+
+            if (response.ok) {
+                alert(`✅ Venta registrada con éxito! Total: $${total.toFixed(0)}.`);
+                currentReceipt = {};
+                updateReceipt();
+                // Recomendación: Recargar productos para ver la reducción de stock
+                window.location.reload(); 
+            } else {
+                // Muestra errores de stock insuficiente o validación
+                const errorDetail = responseData.detail || responseData.items?.[0] || 'Error de procesamiento de API.';
+                alert(`❌ Error al registrar la venta: ${errorDetail}`);
+            }
+        } catch (error) {
+            alert('Error de red o desconocido. Revisa la consola.');
+            console.error('Sale POST Error:', error);
+        }
     });
 
-    // 3. Manejo de Búsqueda (filtrado en el lado del cliente o llamada API)
+    // 3. Manejo de Búsqueda (filtrado en el lado del cliente)
     document.getElementById('product-search').addEventListener('input', function() {
         const query = this.value.toLowerCase();
         document.querySelectorAll('.product-item').forEach(item => {
             const name = item.dataset.name.toLowerCase();
             const sku = item.dataset.sku ? item.dataset.sku.toLowerCase() : '';
+            const parentCol = item.parentElement;
+            
             if (name.includes(query) || sku.includes(query)) {
-                item.parentElement.style.display = 'block';
+                parentCol.style.display = 'block';
             } else {
-                item.parentElement.style.display = 'none';
+                parentCol.style.display = 'none';
             }
         });
     });

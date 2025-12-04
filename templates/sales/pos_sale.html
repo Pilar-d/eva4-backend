@@ -156,6 +156,7 @@
         }
 
         receiptTotalDisplay.textContent = `$${total.toFixed(0)}`;
+        // Deshabilitar si no hay ítems o si no hay sucursal asignada
         finalizeBtn.disabled = itemCount === 0 || branchId === 'null';
         emptyMessage.style.display = itemCount === 0 ? 'block' : 'none';
 
@@ -244,7 +245,7 @@
                 alert(`✅ Venta registrada con éxito! Total: $${total.toFixed(0)}.`);
                 currentReceipt = {};
                 updateReceipt();
-                // Recomendación: Recargar la página para obtener la lista de productos con el stock actualizado
+                // Recomendación: Recargar productos para ver la reducción de stock
                 window.location.reload(); 
             } else {
                 // Muestra errores de stock insuficiente o validación
@@ -261,7 +262,6 @@
     document.getElementById('product-search').addEventListener('input', function() {
         const query = this.value.toLowerCase();
         document.querySelectorAll('.product-item').forEach(item => {
-            // Asegúrate de incluir data-sku en tu template si lo usas en el JS
             const name = item.dataset.name.toLowerCase();
             const sku = item.dataset.sku ? item.dataset.sku.toLowerCase() : '';
             const parentCol = item.parentElement;

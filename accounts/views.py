@@ -3,179 +3,148 @@
 from rest_framework import viewsets, mixins, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-# Se usa IsAuthenticated, pero se ELIMINA 'Or' para evitar el ImportError
-from rest_framework.permissions import IsAuthenticated 
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-# Django imports for template views
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import user_passes_test
-from django.conf import settings # Importar settings si usamos LOGIN_REDIRECT_URL
+from django.conf import settings  # Para LOGIN_REDIRECT_URL
 
-# Importar modelos, serializadores y PERMISOS LOCALES (incluyendo CustomOr)
 from .models import User
 from .serializers import UserSerializer
-# Importamos CustomOr que definiremos en permissions.py para reemplazar drf.Or
-from .permissions import IsSuperAdmin, IsAdminCliente, is_super_admin_check, is_admin_cliente_check, CustomOr 
-from core.models import Company # Necessary for querying companies
+from .permissions import (
+    IsSuperAdmin, IsAdminCliente,
+    is_super_admin_check, is_admin_cliente_check, CustomOr
+)
+from core.models import Company
 
 
 # ----------------------------------------------------
-# 0. VIEW PARA MANEJAR REDIRECCIÓN POST-LOGIN 
+# 0. VIEW PARA MANEJAR REDIRECCIÓN POST-LOGIN
 # ----------------------------------------------------
-
 def login_success_redirect_view(request):
-# ... (Se mantiene el código sin cambios) ...
-    """
-    Maneja la lógica de redirección después de un inicio de sesión exitoso.
-    
-    Si el parámetro 'next' es '/api/users/create/', renderiza la plantilla
-    directamente en lugar de redirigir al endpoint de la API.
-    """
     user = request.user
-    
-    # Obtener el parámetro 'next' de la URL (e.g., /login/?next=/...)
     next_url = request.GET.get('next')
-    
-    # Lógica de redirección específica solicitada
+
     if next_url == '/api/users/create/':
-        # Verificamos si el usuario cumple con el requisito para ver el formulario
-        # (Super Admin o Admin Cliente). Esto replica la seguridad del decorador.
         if is_super_admin_check(user) or is_admin_cliente_check(user):
-            # Llamamos a la lógica de la vista del formulario para renderizar
-            # la plantilla con el contexto correcto (roles, compañías, etc.).
-            # IMPORTANTE: user_create_template_view DEBE ser importada si está en otro archivo.
-            # Asumo que user_create_template_view SÍ está en este views.py por el código proporcionado.
             return user_create_template_view(request)
         else:
-            # Si no tiene permisos, redirigimos a un lugar seguro (e.g., dashboard)
-            return redirect(settings.LOGIN_REDIRECT_URL) 
-            
-    # Redirección por defecto si no hay 'next' o si 'next' es otro path
-    # Usualmente esto redirige a la URL configurada en settings.LOGIN_REDIRECT_URL ('dashboard')
-    return redirect(next_url or settings.LOGIN_REDIRECT_URL) 
+            return redirect(settings.LOGIN_REDIRECT_URL)
+
+    return redirect(next_url or settings.LOGIN_REDIRECT_URL)
+
 
 # ----------------------------------------------------
 # 1. TEMPLATE VIEW (GET): Renders the HTML Form
 # ----------------------------------------------------
-
-@user_passes_test(is_super_admin_check or is_admin_cliente_check)
+@user_passes_test(lambda u: is_super_admin_check(u) or is_admin_cliente_check(u))
 def user_create_template_view(request):
-# ... (Se mantiene el código sin cambios) ...
-    """
-    Renders the HTML form for creating new users.
-    This is the view linked from the dashboard/menu.
-    """
     user = request.user
     companies = None
-    
-    # 1. Define roles allowed based on creator
+    branches = []
+
     if user.role == 'super_admin':
-        # Super Admin creates Admin Clients
         allowed_roles = [('admin_cliente', 'Admin Cliente (Tenant)')]
-        companies = Company.objects.filter(is_active=True) # Needs list of tenants
+        companies = Company.objects.filter(is_active=True).order_by('name')
+
     elif user.role == 'admin_cliente':
-        # Admin Cliente creates Gerentes and Vendedores
         allowed_roles = [('gerente', 'Gerente'), ('vendedor', 'Vendedor')]
+        if user.company:
+            from products.models import Branch
+            branches = Branch.objects.filter(company=user.company).order_by('name')
     else:
-        # Should be caught by the decorator, but a safe fallback
         return redirect('dashboard')
-        
+
+    post_data = request.POST if request.method == 'POST' else {}
+
     context = {
         'user': user,
         'allowed_roles': allowed_roles,
         'companies': companies,
-        # Errors from a previous failed API POST can be retrieved from session/messages if needed
+        'branches': branches,
+        'post_data': post_data,
     }
-    
+
     return render(request, 'accounts/user_create.html', context)
 
 
 # ----------------------------------------------------
-# 2. API VIEWSET (DRF): Handles POST /api/users/create/ and GET /api/users/me/
+# 2. API VIEWSET (DRF)
 # ----------------------------------------------------
-
-class UserViewSet(mixins.CreateModelMixin, 
-                  mixins.RetrieveModelMixin, 
-                  mixins.UpdateModelMixin, 
+class UserViewSet(mixins.CreateModelMixin,
+                  mixins.RetrieveModelMixin,
+                  mixins.UpdateModelMixin,
                   viewsets.GenericViewSet):
-    
+
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    
+
     def get_queryset(self):
-# ... (Se mantiene el código sin cambios) ...
-        """Filters queryset based on user role (Tenancy)."""
         user = self.request.user
         if not user.is_authenticated:
             return User.objects.none()
-            
         if user.role == 'super_admin':
             return User.objects.all()
-            
         if user.role in ['admin_cliente', 'gerente'] and user.company:
             return User.objects.filter(company=user.company)
-            
         return User.objects.filter(id=user.id)
 
     def get_permissions(self):
-        """Assigns permissions based on action."""
         if self.action == 'create':
-            # POST /api/users/create/ requires IsAuthenticated AND (IsSuperAdmin OR IsAdminCliente)
-            # CORRECCIÓN: Uso de la clase CustomOr importada localmente.
-            return [
-                IsAuthenticated(), 
-                CustomOr(IsSuperAdmin(), IsAdminCliente()) # <-- MODIFICADO
-            ]
-        
-        # For 'me' and other retrieves
+            return [IsAuthenticated(), CustomOr(IsSuperAdmin(), IsAdminCliente())]
         return [IsAuthenticated()]
 
+    def create(self, request, *args, **kwargs):
+        """
+        Sobrescribimos create() para redirigir al dashboard después de crear usuario.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        # Redirigir al dashboard después de crear usuario (HTML form POST)
+        if request.content_type == 'application/x-www-form-urlencoded':
+            return redirect(settings.LOGIN_REDIRECT_URL)
+
+        # Para llamadas API normales, devolver datos de usuario creado
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_create(self, serializer):
-# ... (Se mantiene el código sin cambios) ...
-        """
-        Handles user creation and enforces role/tenancy rules.
-        """
         creator = self.request.user
         data = self.request.data
         role_to_create = data.get('role')
-        company_id_data = data.get('company') 
+        company_id_data = data.get('company')
+        branch_id_data = data.get('branch')  # Nuevo campo branch
 
-        # 1. IS_ACTIVE Check
         if not creator.is_active:
             raise PermissionDenied("Tu cuenta está inactiva y no puedes realizar esta acción.")
 
-        # 2. Control of Roles and Tenancy 
+        # ------------------- SUPER ADMIN -------------------
         if creator.role == 'super_admin':
             if role_to_create != 'admin_cliente':
-                    raise ValidationError({"role": "Super Admin solo puede crear 'admin_cliente' y configurar cuentas base."})
-                    
+                raise ValidationError({"role": "Super Admin solo puede crear 'admin_cliente'."})
             if not company_id_data:
-                raise ValidationError({"company": "Super Admin debe especificar la compañía (tenant) a asignar."})
-                
-            # Assign company ID passed in data
+                raise ValidationError({"company": "Super Admin debe asignar la compañía (tenant)."})
             serializer.save(is_active=True, company_id=company_id_data)
-            
+
+        # ------------------- ADMIN CLIENTE -------------------
         elif creator.role == 'admin_cliente':
             if role_to_create not in ['gerente', 'vendedor']:
                 raise PermissionDenied(f"Admin Cliente no puede crear el rol: {role_to_create}.")
+            if not branch_id_data:
+                raise ValidationError({"branch": "Debe seleccionar una sucursal para Gerente o Vendedor."})
 
-            # Force company to be the creator's company
-            serializer.save(is_active=True, company=creator.company)
-        
+            serializer.save(is_active=True, company=creator.company, branch_id=branch_id_data)
+
         else:
-            raise PermissionDenied("Solo el Super Admin o el Admin Cliente pueden crear nuevos usuarios.")
+            raise PermissionDenied("Solo Super Admin o Admin Cliente pueden crear usuarios.")
 
     @action(detail=False, methods=['get'])
     def me(self, request):
-# ... (Se mantiene el código sin cambios) ...
-        """
-        GET /api/users/me/ - Get authenticated user info.
-        """
         user = request.user
-        
         if not user.is_active:
-                return Response({"detail": "Cuenta inactiva."}, status=status.HTTP_403_FORBIDDEN)
-                
+            return Response({"detail": "Cuenta inactiva."}, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(user)
         return Response(serializer.data)
