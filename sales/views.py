@@ -320,3 +320,33 @@ class ReportViewSet(viewsets.GenericViewSet):
             "filters": {"from": date_from, "to": date_to, "branch_id": branch_id},
             "summary": list(report_data)
         })
+    
+    @transaction.atomic
+    def create(self, request):
+        # ... (Validación de headers/roles) ...
+        
+        # Reestructuración manual de ítems del formulario HTML
+        form_data = request.data.copy()
+        
+        # Mapeamos los campos del formulario HTML al formato JSON esperado por el Serializer
+        api_data = {
+            'supplier_id': form_data.get('supplier_id'),
+            'branch_id': form_data.get('branch_id'),
+            'date': form_data.get('date'),
+            'items': [
+                {
+                    'product': form_data.get('items-0-product'),
+                    'quantity': form_data.get('items-0-quantity')
+                    # Nota: El serializer de Purchase utiliza SaleItemSerializer, 
+                    # que requiere 'price'. Tendrías que buscar el precio del producto
+                    # antes de pasar los datos al serializer si el price es obligatorio.
+                }
+            ]
+        }
+        
+        # ... (Continuar con la validación del serializer) ...
+        # serializer = PurchaseCreateSerializer(data=api_data)
+        # serializer.is_valid(raise_exception=True)
+        # ... (El resto de la lógica de guardado) ...
+
+        

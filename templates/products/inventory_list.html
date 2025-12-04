@@ -52,30 +52,35 @@
 
 {% block extra_js %}
 <script>
-    // ⚠️ FIX: apiEndpoint definition moved inside the script block
+    // ⚠️ CRITICAL: The API endpoint URL from Django's resolver
     const apiEndpoint = "{% url 'products:inventory-list-api' %}"; 
 
     document.getElementById('inventory-filter-form').addEventListener('submit', function(e) {
         e.preventDefault();
         const branchId = document.getElementById('branch_select').value;
         
-
         if (!branchId) {
             alert('Por favor, selecciona una sucursal.');
             return;
         }
 
-        // ⚠️ Simulación de llamada a API (para la implementación real)
+        // Fetch API request
         fetch(`${apiEndpoint}?branch=${branchId}`, {
             method: 'GET',
             headers: {
-                // IMPORTANT: In a real environment, you must pass the JWT token for authorization
+                // IMPORTANT: Send the JWT token for authorization (401/403 Fix)
                 'Authorization': 'Bearer ' + localStorage.getItem('access_token') 
             }
         })
         .then(response => {
             // Check for API errors (401/403/404)
-            if (!response.ok) throw new Error('API request failed: ' + response.status);
+            if (!response.ok) {
+                // Provide specific feedback for authentication issues
+                if (response.status === 401 || response.status === 403) {
+                     alert('Error de autenticación. Por favor, obtén un token JWT en el login y vuelve a intentar.');
+                }
+                throw new Error('API request failed: ' + response.status);
+            }
             return response.json();
         })
         .then(data => {
@@ -86,7 +91,7 @@
             
             if (data && data.length > 0) {
                 data.forEach(item => {
-                    // Assuming API returns item.product.sku and item.product_name (from Serializer ReadOnlyField)
+                    // NOTE: item.product_sku must be returned by the Serializer
                     const row = `<tr>
                         <td>${item.product_name}</td>
                         <td>${item.product_sku || 'N/A'}</td> 
@@ -102,8 +107,9 @@
             }
         })
         .catch(error => {
-            alert('Error al cargar inventario. Asegúrate de estar autenticado y que la API esté funcionando.');
             console.error('Fetch Error:', error);
+            // Re-hide the table on error
+            document.getElementById('inventory-table').classList.add('d-none');
         });
     });
 </script>

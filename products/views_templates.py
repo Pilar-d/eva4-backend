@@ -7,6 +7,7 @@ from django.forms import model_to_dict
 from django.db.models import F
 from django.urls import reverse
 from django.http import HttpResponse
+from django.db import transaction # Necesario para atomicidad
 
 # Importar modelos y serializadores
 from .models import Product, Branch, Supplier, Inventory
@@ -15,6 +16,7 @@ from core.models import Subscription
 # Importamos checks funcionales
 from accounts.permissions import is_admin_cliente_or_gerente_check, is_admin_cliente_check
 from accounts.utils import validar_rut 
+from django.db.models import Sum # Necesario para anotación en product_list_view
 
 # ----------------------------------------------------
 # Vistas Auxiliares (Redirects to Dashboard if no Company)
@@ -33,11 +35,16 @@ def check_company(user, request):
 
 @user_passes_test(is_admin_cliente_or_gerente_check)
 def product_list_view(request):
-    """Muestra el listado de productos de la compañía (HTML)."""
+    """Muestra el listado de productos de la compañía (HTML), incluyendo stock total."""
     if response := check_company(request.user, request):
         return response
         
-    products = Product.objects.filter(company=request.user.company).order_by('name')
+    user = request.user
+    # ⚠️ FIX: Anotar el queryset con el stock total para el template
+    products = Product.objects.filter(company=user.company).annotate(
+        total_stock=Sum('inventory__stock')
+    ).order_by('name')
+    
     return render(request, 'products/product_list.html', {'products': products})
 
 
@@ -48,35 +55,56 @@ def product_create_view(request):
         return response
     
     user = request.user
+    # CRÍTICO: Obtener sucursales y categorías para el contexto
+    branches = Branch.objects.filter(company=user.company).order_by('name')
+    category_choices = Product.CATEGORY_CHOICES 
     
-    # ⚠️ FIX: Definimos el contexto base y opciones de categoría
-    context = {
-        'user': user, 
-        'product': None, 
-        'category_choices': Product.CATEGORY_CHOICES # CRÍTICO: Pasa las opciones de categoría
-    } 
+    # Inicializa context con valores base
+    context = {'user': user, 'product': None, 'branches': branches, 'category_choices': category_choices} 
     
     if request.method == 'POST':
         data = request.POST.copy()
         serializer = ProductSerializer(data=data)
         
+        # Obtener datos de inventario del formulario POST
+        branch_id = request.POST.get('initial_branch_id')
+        initial_stock_str = request.POST.get('initial_stock')
+        
         if serializer.is_valid():
             try:
-                serializer.save(company=user.company)
-                messages.success(request, f"Producto '{data['name']}' creado con éxito.")
-                return redirect('products:product_list')
+                with transaction.atomic():
+                    # 1. CREAR EL PRODUCTO
+                    new_product = serializer.save(company=user.company)
+                    
+                    # 2. CREAR/ACTUALIZAR INVENTARIO INICIAL (FIX para agregar stock)
+                    if branch_id and initial_stock_str and int(initial_stock_str) > 0:
+                        branch = get_object_or_404(Branch, pk=branch_id, company=user.company)
+                        stock = int(initial_stock_str)
+                        
+                        Inventory.objects.update_or_create(
+                            product=new_product,
+                            branch=branch,
+                            defaults={'stock': stock, 'reorder_point': 0}
+                        )
+                    
+                    messages.success(request, f"Producto '{new_product.name}' creado y stock inicial asignado.")
+                    return redirect('products:product_list')
+                
             except Exception as e:
                 messages.error(request, f"Error al guardar: {e}")
+                context['post_data'] = request.POST
+                return render(request, 'products/product_form.html', context)
+        
         else:
+            # 3. Mostrar errores de validación del Serializer
             for field, errors in serializer.errors.items():
                 messages.error(request, f"Error en {field}: {', '.join(errors)}")
             
-            context['post_data'] = request.POST # Pasa datos POST para repoblar el formulario
-            # El contexto ya contiene 'product': None y las 'category_choices'
+            context['post_data'] = request.POST 
             return render(request, 'products/product_form.html', context)
             
     # GET Request: Initial Load
-    context['post_data'] = {} # Inicializa 'post_data' como diccionario vacío en GET
+    context['post_data'] = {} 
     return render(request, 'products/product_form.html', context)
 
 
@@ -101,8 +129,7 @@ def product_update_view(request, pk):
     """Muestra y procesa el formulario de actualización de producto."""
     product = get_object_or_404(Product, pk=pk, company=request.user.company)
     
-    # Define opciones de categoría para el GET/POST failure
-    category_choices = Product.CATEGORY_CHOICES
+    category_choices = Product.CATEGORY_CHOICES # Define opciones de categoría
 
     if request.method == 'POST':
         serializer = ProductSerializer(product, data=request.POST)
@@ -123,7 +150,7 @@ def product_update_view(request, pk):
     context = {
         'post_data': initial_data, 
         'product': product,
-        'category_choices': category_choices # Pasa las opciones de categoría
+        'category_choices': category_choices
     }
     return render(request, 'products/product_form.html', context)
 
@@ -277,3 +304,43 @@ def inventory_list_view(request):
     }
     # Renderiza la shell del inventario, la carga de datos es vía JS/API.
     return render(request, 'products/inventory_list.html', context)
+
+from django.db import transaction # Asegúrate de que transaction esté importado
+# ... (otras importaciones) ...
+
+@user_passes_test(is_admin_cliente_or_gerente_check)
+def product_list_view(request):
+    """Muestra el listado de productos y maneja la eliminación (POST)."""
+    if response := check_company(request.user, request):
+        return response
+    
+    user = request.user
+    
+    # ⚠️ 1. LÓGICA DE ELIMINACIÓN (POST request)
+    if request.method == 'POST':
+        product_id = request.POST.get('product_id')
+        action_type = request.POST.get('action_type')
+
+        if action_type == 'delete' and product_id:
+            try:
+                # Obtener el producto asegurando el tenancy
+                product = get_object_or_404(Product, pk=product_id, company=user.company)
+                
+                # Usar transacción atómica para asegurar la eliminación de inventario
+                with transaction.atomic():
+                    product_name = product.name
+                    product.delete()
+                    messages.success(request, f"Producto '{product_name}' eliminado con éxito.")
+            except Exception as e:
+                messages.error(request, f"Error al eliminar el producto: {e}")
+            
+            # Redirigir siempre después del POST
+            return redirect('products:product_list')
+
+
+    # 2. LÓGICA DE LISTADO (GET request)
+    products = Product.objects.filter(company=user.company).annotate(
+        total_stock=Sum('inventory__stock')
+    ).order_by('name')
+    
+    return render(request, 'products/product_list.html', {'products': products})

@@ -20,6 +20,7 @@ from .views import (
     subscription_detail_view # <--- THIS FUNCTION IS MISSING
 )
 
+
 app_name = 'core'
 
 # 1. Configurar el Router para CompanyViewSet (Rutas API)
@@ -58,4 +59,6 @@ urlpatterns = [
     path('company/create/from_request/<int:pk>/', 
           company_create_from_request_view, 
           name='company_create_from_request'),
+
+    
 ]

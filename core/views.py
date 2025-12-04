@@ -15,7 +15,7 @@ from django.utils.crypto import get_random_string # Importado para generación d
 # Importar modelos, serializadores y permisos locales
 from .models import Company, Subscription
 from .serializers import CompanySerializer, SubscriptionActionSerializer
-from accounts.permissions import IsSuperAdmin 
+from accounts.permissions import IsSuperAdmin # Clase de permiso para ViewSet
 from accounts.models import User
 from sales.models import ClientRequest 
 from accounts.utils import validar_rut 
@@ -78,43 +78,6 @@ class CompanyViewSet(mixins.CreateModelMixin,
 # ----------------------------------------------------
 # 2. Vistas de Templates (Flujo de Creación desde Solicitud)
 # ----------------------------------------------------
-user_passes_test(is_super_admin_check)
-def subscription_detail_view(request, pk):
-    """
-    GET: Muestra la gestión de suscripción para una compañía específica (edición de plan).
-    POST: Procesa el cambio de plan/restricciones.
-    """
-    from .models import Subscription
-    
-    # Usamos select_related para obtener la suscripción en una sola consulta
-    company = get_object_or_404(Company.objects.select_related('subscription'), pk=pk)
-    
-    # Pre-cargar datos del plan actual
-    current_plan = company.subscription.plan_name if hasattr(company, 'subscription') else None
-    
-    if request.method == 'POST':
-        plan_name = request.POST.get('plan_name')
-        
-        # Lógica de procesamiento (simplificada):
-        if plan_name in dict(Subscription.PLAN_CHOICES):
-            company.subscription.plan_name = plan_name
-            company.subscription.active = True
-            company.subscription.save() 
-            messages.success(request, f"Plan de {company.name} actualizado a {plan_name}.")
-            return redirect('core:company_list')
-        else:
-            messages.error(request, "Plan inválido.")
-            return redirect('core:subscription_detail', pk=pk) # Redirect back to the form
-
-    # GET: Preparar contexto para renderizar el formulario
-    context = {
-        'company': company,
-        'plan_choices': Subscription.PLAN_CHOICES, # Pasa la lista de opciones
-        'current_plan_code': current_plan,
-    }
-    
-    # Renderiza el template core/subscription_list.html, que espera el objeto 'company'
-    return render(request, 'core/subscription_list.html', context)
 
 @user_passes_test(is_super_admin_check)
 def company_create_from_request_view(request, pk):
@@ -250,3 +213,41 @@ def subscription_list_template_view(request):
     
     # Renderizamos la plantilla core/subscription_list.html
     return render(request, 'core/subscription_list.html', {'companies': companies})
+@user_passes_test(is_super_admin_check)
+def subscription_detail_view(request, pk):
+    """
+    GET: Muestra la gestión de suscripción para una compañía específica (edición de plan).
+    POST: Procesa el cambio de plan/restricciones.
+    """
+    from .models import Subscription # Asegurar importación local
+    
+    # Usamos select_related para obtener la suscripción en una sola consulta
+    company = get_object_or_404(Company.objects.select_related('subscription'), pk=pk)
+    
+    # Pre-cargar datos del plan actual
+    current_plan = company.subscription.plan_name if hasattr(company, 'subscription') else None
+    
+    if request.method == 'POST':
+        plan_name = request.POST.get('plan_name')
+        
+        # Lógica de procesamiento:
+        if plan_name in dict(Subscription.PLAN_CHOICES):
+            
+            company.subscription.plan_name = plan_name
+            company.subscription.active = True
+            company.subscription.save() # Esto dispara el cálculo de max_branches y end_date
+            messages.success(request, f"Plan de {company.name} actualizado a {plan_name}.")
+            return redirect('core:company_list')
+        else:
+            messages.error(request, "Plan inválido.")
+            return redirect('core:subscription_detail', pk=pk) 
+
+    # GET: Preparar contexto para renderizar el formulario
+    context = {
+        'company': company,
+        'plan_choices': Subscription.PLAN_CHOICES, # Pasa la lista de opciones
+        'current_plan_code': current_plan,
+    }
+    
+    # Renderiza el template que espera el objeto 'company'
+    return render(request, 'core/subscription_list.html', context)

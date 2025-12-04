@@ -7,43 +7,30 @@ from django.utils.decorators import method_decorator
 from django.db.models import F, Sum
 from django.contrib import messages
 from django.urls import reverse
+from django.utils import timezone # Importado para current_date
 
-# Importamos la función de chequeo para el Super Admin
-from accounts.permissions import is_super_admin_check 
-from accounts.permissions import is_vendedor_check # Needed for pos_sale_view
+# Importamos las funciones de chequeo de roles
+from accounts.permissions import is_super_admin_check, is_vendedor_check, is_admin_cliente_or_gerente_check 
 
 # Importar modelos
 from .models import CartItem, ClientRequest 
-from products.models import Product, Branch, Inventory
+from products.models import Product, Branch, Inventory, Supplier 
 from accounts.models import User 
 from core.models import Company
 
 # ----------------------------------------------------
-# 0. Request Delete View (Consolidated)
+# 0. Vistas Auxiliares (Verificación de Tenancy)
 # ----------------------------------------------------
-# This function was inserted out of order; placing it near the end, but before the main logic.
 
-@user_passes_test(is_super_admin_check)
-def request_delete_view(request, pk):
-    """
-    Procesa el POST para eliminar una solicitud de cliente.
-    """
-    if request.method == 'POST':
-        solicitud = get_object_or_404(ClientRequest, pk=pk)
-        
-        # Impedir eliminar solicitudes que ya fueron aceptadas
-        if solicitud.status != 'PENDIENTE':
-             messages.error(request, f"La solicitud N°{pk} ya fue {solicitud.status} y no puede ser eliminada.")
-        else:
-             solicitud.delete()
-             messages.success(request, f"Solicitud N°{pk} de {solicitud.company_name} eliminada con éxito.")
-
-    # Redirects back to the list of requests
-    return redirect('sales:request-list')
-
+def check_company(user, request):
+    """Verifica la autenticación y la asociación de compañía (tenancy)."""
+    if not user.company:
+        messages.error(request, "Usuario no asociado a una compañía.")
+        return redirect('dashboard')
+    return None
 
 # ----------------------------------------------------
-# 1. Catálogo de Productos (GET /shop/products/)
+# 1. Catálogo y E-commerce
 # ----------------------------------------------------
 
 class CatalogoView(TemplateView):
@@ -51,15 +38,12 @@ class CatalogoView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Mostrar productos de compañías activas.
         context['products'] = Product.objects.filter(company__is_active=True).order_by('name')
         return context
 
 catalogo_view = CatalogoView.as_view()
 
-
-# ----------------------------------------------------
-# 2. Detalle de Producto (GET /shop/products/{id}/)
-# ----------------------------------------------------
 
 def detalle_producto_view(request, pk):
     product = get_object_or_404(Product, pk=pk)
@@ -68,10 +52,6 @@ def detalle_producto_view(request, pk):
     }
     return render(request, 'shop/detalle_producto.html', context)
 
-
-# ----------------------------------------------------
-# 3. Carrito de Compras (GET /shop/cart/)
-# ----------------------------------------------------
 
 @login_required(login_url='/login/')
 def cart_view(request):
@@ -86,10 +66,6 @@ def cart_view(request):
     }
     return render(request, 'shop/cart.html', context)
 
-
-# ----------------------------------------------------
-# 4. Checkout (GET /shop/checkout/)
-# ----------------------------------------------------
 
 @login_required(login_url='/login/')
 def checkout_view(request):
@@ -111,13 +87,11 @@ def checkout_view(request):
 
 
 # ----------------------------------------------------
-# 5. Dashboard (Vista para templates, usada por LOGIN_REDIRECT_URL)
+# 2. Vistas de Solicitud de Plan & Dashboard
 # ----------------------------------------------------
 
 def dashboard_view(request):
-    """
-    Vista que maneja el punto de entrada después del login.
-    """
+    """ Vista que maneja el punto de entrada después del login. """
     if not request.user.is_authenticated:
         return redirect('login')
 
@@ -133,19 +107,14 @@ def dashboard_view(request):
 
     return render(request, 'dashboard.html', context)
 
-# ----------------------------------------------------
-# 6. Vistas de Solicitud de Plan (Flujo de Nuevos Clientes)
-# ----------------------------------------------------
-
 def plan_request_view(request):
-    """Muestra la interfaz para que los clientes envíen solicitudes de planes."""
+    """Muestra la interfaz para que los clientes envíen solicitudes de planes (Landing Page)."""
     plans = [
         {'name': 'Básico', 'price': 19990, 'color': 'secondary', 'options': {'ecom': 3, 'branches': 1, 'reports': 'Básicos'}},
         {'name': 'Estándar', 'price': 39990, 'color': 'primary', 'options': {'ecom': 6, 'branches': 3, 'reports': 'Avanzados'}},
         {'name': 'Premium', 'price': 69990, 'color': 'success', 'options': {'ecom': 9, 'branches': 5, 'reports': 'Full API'}},
     ]
     
-    # ⚠️ MODIFICACIÓN CLAVE: Renderiza la landing page completa
     return render(request, 'sales/plan_request_public_landing.html', {'plans': plans})
 
 
@@ -167,29 +136,73 @@ def submit_request(request):
     return redirect('shop:plan_request')
     
 # ----------------------------------------------------
-# 7. Vista de Listado de Solicitudes (VISTA SUPER ADMIN)
+# 3. Vistas de Gestión (Super Admin & Stock Entry)
 # ----------------------------------------------------
 
 @user_passes_test(is_super_admin_check)
 def client_request_list_view(request):
-    """
-    Muestra la lista de solicitudes PENDIENTES de clientes al Super Admin.
-    """
+    """ Muestra la lista de solicitudes PENDIENTES de clientes al Super Admin. """
     pending_requests = ClientRequest.objects.filter(status='PENDIENTE').order_by('-created_at')
-    
     return render(request, 'sales/request_admin_list.html', {'pending_requests': pending_requests})
 
+
+@user_passes_test(is_super_admin_check)
+def request_delete_view(request, pk):
+    """ Procesa el POST para eliminar una solicitud de cliente. """
+    if request.method == 'POST':
+        solicitud = get_object_or_404(ClientRequest, pk=pk)
+        
+        if solicitud.status != 'PENDIENTE':
+             messages.error(request, f"La solicitud N°{pk} ya fue {solicitud.status} y no puede ser eliminada.")
+        else:
+             solicitud.delete()
+             messages.success(request, f"Solicitud N°{pk} de {solicitud.company_name} eliminada con éxito.")
+
+    return redirect('sales:request-list')
+
+
+@user_passes_test(is_admin_cliente_or_gerente_check)
+def purchase_create_template_view(request, pk):
+    """
+    Muestra el formulario para registrar el ingreso de stock (Purchase).
+    Requiere el ID del proveedor (pk) y lo pasa al template, junto con listas de Productos y Sucursales.
+    """
+    # Aseguramos importaciones locales
+    from products.models import Supplier, Branch, Product 
+
+    if response := check_company(request.user, request):
+        return response
+    
+    user = request.user
+    
+    # 2. Obtener el proveedor específico
+    supplier = get_object_or_404(Supplier, pk=pk, company=user.company)
+    
+    # 3. Obtener listas de productos y sucursales del TENANT para los dropdowns
+    branches = Branch.objects.filter(company=user.company).order_by('name')
+    products = Product.objects.filter(company=user.company).order_by('name')
+    
+    # 4. Preparar el contexto
+    context = {
+        'supplier': supplier,
+        'branches': branches, 
+        'products': products, 
+        'current_date': timezone.now().strftime('%Y-%m-%d')
+    }
+    
+    # 5. Renderizar el template
+    return render(request, 'sales/purchase_form.html', context)
+
+
 # ----------------------------------------------------
-# 8. POS Sale View (Vendedor)
+# 7. POS Sale View (Vendedor)
 # ----------------------------------------------------
-# Added to resolve ImportError in sales/urls.py
 
 @user_passes_test(is_vendedor_check)
 def pos_sale_view(request):
     """
     Renders the Point of Sale (POS) interface.
     """
-    from accounts.permissions import is_vendedor_check # Ensure check is available
     from django.db.models import F 
     
     user = request.user
@@ -198,7 +211,8 @@ def pos_sale_view(request):
 
     # Logic: Determine the seller's branch
     if user.company:
-        branch = user.company.branch_set.first() # Simplification: use the first branch
+        # Asumimos la sucursal asignada para el POS es la primera de la compañía
+        branch = Branch.objects.filter(company=user.company).first()
         
         if branch:
             # Get products with stock in that branch (annotated stock)

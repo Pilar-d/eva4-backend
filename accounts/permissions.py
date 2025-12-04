@@ -12,7 +12,6 @@ class IsSuperAdmin(BasePermission):
     """Permiso solo para el Super Administrador."""
     message = 'Acceso restringido. Requiere el rol de Super Administrador.'
     def has_permission(self, request, view):
-        # [cite_start]El requisito exige verificar is_active antes de permitir el acceso [cite: 95]
         return request.user.is_authenticated and request.user.is_active and request.user.role == 'super_admin'
 
 class IsAdminCliente(BasePermission):
@@ -43,6 +42,22 @@ class IsAdminClienteOrGerente(BasePermission):
             return False
         allowed_roles = ['admin_cliente', 'gerente']
         return request.user.role in allowed_roles
+
+# --- PERMISO CUSTOM PARA LÓGICA OR (SOLUCIÓN AL ImportError) ---
+
+class CustomOr(BasePermission):
+    """
+    Combina permisos usando lógica OR. Retorna True si AL MENOS uno de los 
+    permisos anidados retorna True. (Implementación para DRF < 3.10).
+    """
+    def __init__(self, *permissions):
+        # Almacena las instancias de las clases de permiso pasadas
+        self.permissions = permissions
+
+    def has_permission(self, request, view):
+        # Itera sobre los permisos y retorna True tan pronto como uno pase.
+        # Debe llamar al método has_permission de cada instancia de permiso.
+        return any(perm.has_permission(request, view) for perm in self.permissions)
 
 # --- Permisos de Nivel de Objeto (Tenancy) ---
 
@@ -83,12 +98,10 @@ def is_super_admin_check(user):
     # Verifica que el usuario esté autenticado, activo y tenga el rol 'super_admin'
     return user.is_authenticated and user.is_active and user.role == 'super_admin'
 
-# ⚠️ SOLUCIÓN CLAVE 1: Implementar el chequeo para Admin/Gerente (Necesario en products/views_templates.py)
 def is_admin_cliente_or_gerente_check(user):
     """Verifica si el usuario es Admin Cliente O Gerente (para CRUD de gestión)."""
     return user.is_authenticated and user.is_active and user.role in ['admin_cliente', 'gerente']
 
-# ⚠️ SOLUCIÓN CLAVE 2: Implementar el chequeo para Admin Cliente (Necesario en products/views_templates.py)
 def is_admin_cliente_check(user):
     """Verifica si el usuario es Admin Cliente (para CRUD de sucursales/personal)."""
     return user.is_authenticated and user.is_active and user.role == 'admin_cliente'

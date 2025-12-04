@@ -30,7 +30,7 @@
         {% if user.role == 'super_admin' %}
             
             <div class="col">
-                <a href="{% url 'sales:request-list' %}" class="card card-link text-decoration-none shadow-sm h-100 border-primary">
+                <a href="{% url 'sales:request-list' %}" class="card card-link text-decoration-none shadow-lg h-100 border-primary">
                     <div class="card-body text-center">
                         <i class="fas fa-envelope-open-text fa-3x text-primary mb-3"></i>
                         <h5 class="card-title">Solicitudes de Planes</h5>
@@ -45,6 +45,16 @@
                         <i class="fas fa-building fa-3x text-info mb-3"></i>
                         <h5 class="card-title">Cuentas y Tenancy</h5>
                         <p class="card-text text-muted">Administrar listado de clientes y su estado de actividad.</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col">
+                <a href="{% url 'core:subscription_list' %}" class="card card-link text-decoration-none shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-receipt fa-3x text-success mb-3"></i>
+                        <h5 class="card-title">Gestión de Suscripción</h5>
+                        <p class="card-text text-muted">Editar planes y límites de servicio.</p>
                     </div>
                 </a>
             </div>
@@ -92,6 +102,26 @@
             </div>
             
             <div class="col">
+                <a href="{% url 'products:product_list' %}" class="card card-link text-decoration-none shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-boxes fa-3x text-info mb-3"></i>
+                        <h5 class="card-title">Gestión de Productos</h5>
+                        <p class="card-text text-muted">Creación y modificación de catálogos.</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col">
+                <a href="{% url 'products:supplier_list' %}" class="card card-link text-decoration-none shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-truck-loading fa-3x text-warning mb-3"></i>
+                        <h5 class="card-title">Proveedores</h5>
+                        <p class="card-text text-muted">Administrar proveedores y compras.</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col">
                 <a href="{% url 'accounts:user_create' %}" class="card card-link text-decoration-none shadow-sm h-100">
                     <div class="card-body text-center">
                         <i class="fas fa-user-plus fa-3x text-warning mb-3"></i>
@@ -132,6 +162,16 @@
                     </div>
                 </a>
             </div>
+            
+            <div class="col">
+                <a href="{% url 'products:supplier_list' %}" class="card card-link text-decoration-none shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-truck-loading fa-3x text-warning mb-3"></i>
+                        <h5 class="card-title">Proveedores</h5>
+                        <p class="card-text text-muted">Ver listado de proveedores y registrar ingresos.</p>
+                    </div>
+                </a>
+            </div>
 
             <div class="col">
                 <a href="{% url 'sales:report-sales' %}" class="card card-link text-decoration-none shadow-sm h-100">
@@ -167,7 +207,7 @@
     <style>
         .card-link {
             transition: all 0.2s ease-in-out;
-            color: inherit; /* Mantiene el color de texto del padre */
+            color: inherit;
         }
         .card-link:hover {
             transform: translateY(-5px);

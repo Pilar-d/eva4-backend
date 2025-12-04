@@ -2,8 +2,14 @@
 {% block title %}Gestión de Productos{% endblock %}
 
 {% block content %}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
     <header class="d-flex justify-content-between align-items-center mb-4">
-        <h1>📦 Catálogo de la Compañía</h1>
+        <h1><i class="fas fa-boxes"></i> Catálogo de la Compañía</h1>
         <a href="{% url 'products:product_create' %}" class="btn btn-primary">
             <i class="fas fa-plus"></i> Añadir Nuevo Producto
         </a>
@@ -11,7 +17,7 @@
 
     {% if products %}
     <div class="table-responsive">
-        <table class="table table-striped table-hover">
+        <table class="table table-striped table-hover align-middle">
             <thead class="table-dark">
                 <tr>
                     <th>SKU</th>
@@ -19,6 +25,7 @@
                     <th>Categoría</th>
                     <th>Precio Venta</th>
                     <th>Costo</th>
+                    <th>⚠️ Stock Total</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -26,13 +33,27 @@
                 {% for product in products %}
                 <tr>
                     <td>{{ product.sku }}</td>
-                    <td>{{ product.name }}</td>
-                    <td><span class="badge bg-secondary">{{ product.category }}</span></td>
+                    <td><strong class="text-info">{{ product.name }}</strong></td>
+                    <td><span class="badge bg-secondary">{{ product.get_category_display }}</span></td> 
                     <td>${{ product.price|floatformat:0 }}</td>
                     <td>${{ product.cost|floatformat:0 }}</td>
+                    
                     <td>
-                        <a href="{% url 'products:product_detail' product.id %}" class="btn btn-sm btn-info">Ver</a>
-                        <a href="{% url 'products:product_update' product.id %}" class="btn btn-sm btn-warning">Editar</a>
+                        <span class="badge bg-{% if product.total_stock > 0 %}info{% else %}dark{% endif %}">
+                            {{ product.total_stock|default:0 }}
+                        </span>
+                    </td>
+                    
+                    <td>
+                        <a href="{% url 'products:product_detail' product.id %}" class="btn btn-sm btn-info" title="Ver Detalle"><i class="fas fa-eye"></i></a>
+                        <a href="{% url 'products:product_update' product.id %}" class="btn btn-sm btn-warning" title="Editar"><i class="fas fa-edit"></i></a>
+
+                        <form method="post" action="{% url 'products:product_list' %}" style="display:inline;" onsubmit="return confirm('¿Está seguro de eliminar el producto {{ product.name }}? Esta acción es irreversible.');">
+                            {% csrf_token %}
+                            <input type="hidden" name="product_id" value="{{ product.id }}">
+                            <input type="hidden" name="action_type" value="delete">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Eliminar"><i class="fas fa-trash"></i></button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}

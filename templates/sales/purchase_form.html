@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% block title %}Registro de Ingreso de Stock{% endblock %}
+
+{% block content %}
+    <header class="mb-4">
+        <h1><i class="fas fa-box-open"></i> Registrar Ingreso de Stock</h1>
+        <p class="lead text-muted">Proveedor: <strong>{{ supplier.name }}</strong> (RUT: {{ supplier.rut }})</p>
+    </header>
+    <hr>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" action="{% url 'sales:purchase-create-api' %}" class="row g-4 needs-validation" novalidate>
+        {% csrf_token %}
+        
+        <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
+        
+        <div class="card p-4 shadow-sm mb-4">
+            <h5 class="card-title">Detalles de la Compra</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="id_branch_id" class="form-label">Sucursal de Destino</label>
+                    <select name="branch_id" id="id_branch_id" class="form-select" required>
+                        <option value="">-- Seleccionar Sucursal --</option>
+                        {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="id_date" class="form-label">Fecha de Compra</label>
+                    <input type="date" name="date" id="id_date" class="form-control" required value="{{ current_date }}">
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4 shadow-sm mb-4">
+            <h5 class="card-title">Productos Comprados (Items)</h5>
+            <div id="product-items-container">
+                <div class="alert alert-secondary">
+                    Nota: En un sistema real, usarías JavaScript o un FormSet de Django para añadir múltiples productos y cantidades.
+                </div>
+                
+                <div class="row g-3 mb-3 border p-2 rounded">
+                    <div class="col-md-6">
+                        <label class="form-label">Producto (ID)</label>
+                        <input type="number" name="items-0-product" class="form-control" placeholder="ID Producto" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Cantidad (Ingreso)</label>
+                        <input type="number" name="items-0-quantity" class="form-control" min="1" required>
+                    </div>
+                    </div>
+            </div>
+        </div>
+
+        <div class="col-12 text-center">
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-check-circle"></i> Registrar Ingreso de Stock
+            </button>
+            <a href="{% url 'products:supplier_list' %}" class="btn btn-outline-secondary btn-lg">Volver a Proveedores</a>
+        </div>
+    </form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Asegura que la fecha actual esté pre-cargada
+        document.getElementById('id_date').value = new Date().toISOString().split('T')[0];
+    });
+</script>
+{% extends 'base.html' %}
+{% block title %}Registro de Ingreso de Stock{% endblock %}
+
+{% block content %}
+    <form method="post" action="{% url 'sales:purchase-create-api' %}" class="row g-4 needs-validation" novalidate>
+        {% csrf_token %}
+        
+        <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
+        
+        <div class="card p-4 shadow-sm mb-4">
+            <h5 class="card-title"><i class="fas fa-file-invoice"></i> Detalles de la Compra</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="id_branch_id" class="form-label">Sucursal de Destino</label>
+                    <select name="branch_id" id="id_branch_id" class="form-select" required>
+                        <option value="">-- Seleccionar Sucursal --</option>
+                        {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="id_date" class="form-label">Fecha de Compra</label>
+                    <input type="date" name="date" id="id_date" class="form-control" required value="{{ current_date }}">
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4 shadow-sm mb-4">
+            <h5 class="card-title"><i class="fas fa-boxes"></i> Ingreso de Productos</h5>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label for="items-0-product" class="form-label">Producto</label>
+                    <select name="items-0-product" id="items-0-product" class="form-select" required>
+                        <option value="">-- Seleccionar Producto --</option>
+                        {% for product in products %}
+                            <option value="{{ product.id }}">{{ product.name }} (SKU: {{ product.sku }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="items-0-quantity" class="form-label">Cantidad a Ingresar</label>
+                    <input type="number" name="items-0-quantity" id="items-0-quantity" class="form-control" min="1" required>
+                </div>
+            </div>
+            <p class="text-muted small mt-2">Nota: Solo se ingresará el primer ítem en esta versión simplificada.</p>
+        </div>
+
+        <div class="col-12 text-center">
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-check-circle"></i> Registrar Ingreso de Stock
+            </button>
+            <a href="{% url 'products:supplier_list' %}" class="btn btn-outline-secondary btn-lg">Volver a Proveedores</a>
+        </div>
+    </form>
+    {% extends 'base.html' %}
+{% block title %}Registro de Ingreso de Stock{% endblock %}
+
+{% block content %}
+    <header class="mb-4">
+        <h1><i class="fas fa-box-open"></i> Registrar Ingreso de Stock</h1>
+        <p class="lead text-muted">Proveedor: <strong>{{ supplier.name }}</strong> (RUT: {{ supplier.rut }})</p>
+    </header>
+    <hr>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" action="{% url 'sales:purchase-create-api' %}" class="row g-4 needs-validation" novalidate>
+        {% csrf_token %}
+        
+        <input type="hidden" name="supplier_id" value="{{ supplier.id }}">
+        <input type="hidden" name="date" value="{{ current_date }}">
+        
+        <div class="card p-4 shadow-sm mb-4">
+            <h5 class="card-title"><i class="fas fa-file-invoice"></i> Detalles de la Compra</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="id_branch_id" class="form-label">Sucursal de Destino</label>
+                    <select name="branch_id" id="id_branch_id" class="form-select" required>
+                        <option value="">-- Seleccionar Sucursal --</option>
+                        {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="id_date_display" class="form-label">Fecha de Compra</label>
+                    <input type="text" id="id_date_display" class="form-control" readonly value="{{ current_date }}">
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4 shadow-sm mb-4">
+            <h5 class="card-title"><i class="fas fa-boxes"></i> Ingreso de Productos</h5>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label for="items-0-product" class="form-label">Producto</label>
+                    <select name="items-0-product" id="items-0-product" class="form-select" required>
+                        <option value="">-- Seleccionar Producto --</option>
+                        {% for product in products %}
+                            <option value="{{ product.id }}">{{ product.name }} (SKU: {{ product.sku }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="items-0-quantity" class="form-label">Cantidad a Ingresar</label>
+                    <input type="number" name="items-0-quantity" id="items-0-quantity" class="form-control" min="1" required>
+                </div>
+            </div>
+            <p class="text-muted small mt-2">Nota: Esta versión simplificada solo procesa un ítem.</p>
+        </div>
+
+        <div class="col-12 text-center">
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-check-circle"></i> Registrar Ingreso de Stock
+            </button>
+            <a href="{% url 'products:supplier_list' %}" class="btn btn-outline-secondary btn-lg">Volver a Proveedores</a>
+        </div>
+    </form>
+{% endblock %}
+{% endblock %}
+{% endblock %}

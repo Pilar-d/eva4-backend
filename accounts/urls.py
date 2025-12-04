@@ -3,8 +3,11 @@
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.urls import path, include
-from .views import UserViewSet # Vistas DRF (para POST y API CRUD)
-from .views_templates import user_create_template_view # Vistas Template (para GET/mostrar formulario)
+
+# Importar las vistas DRF y las vistas de redirección/templates
+# Asumiendo que user_create_template_view y login_success_redirect_view están ahora en .views
+from .views import UserViewSet, login_success_redirect_view 
+from .views_templates import user_create_template_view # Si aún mantienes esta estructura
 
 # Define el namespace de la aplicación (usado en {% url 'accounts:...' %})
 app_name = 'accounts'
@@ -15,11 +18,17 @@ router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
     # ------------------------------------------------
-    # 1. TEMPLATE VIEWS (HTML Interface) - Defined first for easy resolution
+    # 0. AUTH REDIRECTION VIEW (AÑADIDA)
+    # ------------------------------------------------
+    # Esta debe ser la URL a la que se redirige después del login exitoso, 
+    # configurada en settings.LOGIN_REDIRECT_URL.
+    path('redirect/', login_success_redirect_view, name='login_redirect'),
+    
+    # ------------------------------------------------
+    # 1. TEMPLATE VIEWS (HTML Interface) - Definida para que gane la coincidencia GET
     # ------------------------------------------------
     
-    # ⚠️ TEMPLATE GET ROUTE (GET): Muestra el formulario HTML. 
-    # Este es el enlace que usa el dashboard: {% url 'accounts:user_create' %}
+    # RUTA DE TEMPLATE (GET): Muestra el formulario HTML. 
     path('users/create/', user_create_template_view, name='user_create'), 
     
     # ------------------------------------------------
@@ -34,7 +43,7 @@ urlpatterns = [
     # 3. USER API ENDPOINTS (DRF)
     # ------------------------------------------------
     
-    # Rutas CRUD DRF (e.g., GET /api/users/, POST /api/users/)
+    # Rutas CRUD DRF (e.g., GET /api/users/, /api/users/{id}/)
     path('', include(router.urls)), 
     
     # GET /api/users/me/

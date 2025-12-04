@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block title %}Punto de Venta (POS){% endblock %}
+
+{% block content %}
+    <style>
+        .pos-container {
+            max-width: 1300px;
+            margin: auto;
+        }
+        .product-grid {
+            max-height: 70vh; 
+            overflow-y: auto;
+        }
+        .receipt-summary {
+            min-height: 70vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .product-item {
+            border-left: 5px solid var(--bs-primary);
+            transition: transform 0.1s;
+        }
+        .product-item:hover {
+            transform: scale(1.03);
+            background-color: var(--bs-light);
+        }
+    </style>
+    
+    <div class="pos-container">
+        <h1><i class="fas fa-cash-register"></i> Punto de Venta (POS)</h1>
+        <p class="lead text-success">
+            Vendedor: **{{ user.username }}**. Sucursal: 
+            <strong>{{ branch.name|default:"[Sucursal no asignada]" }}</strong>
+        </p>
+        
+        {% if not branch %}
+            <div class="alert alert-danger">Error: No se encontró una sucursal de trabajo asignada al vendedor.</div>
+        {% endif %}
+        
+        <div class="row">
+            
+            <div class="col-md-7">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Buscar Producto</h5>
+                        <input type="text" id="product-search" class="form-control mb-3" placeholder="Buscar por SKU o Nombre">
+                        
+                        <div class="product-grid p-2 border rounded">
+                            <h6>Productos disponibles (Stock > 0)</h6>
+                            <div id="product-list" class="row row-cols-md-3 g-3">
+                                
+                                {% for product in products %}
+                                <div class="col">
+                                    <div class="card product-item" 
+                                            data-id="{{ product.id }}" 
+                                            data-price="{{ product.price }}" 
+                                            data-name="{{ product.name }}" 
+                                            data-stock="{{ product.inventory_stock }}"
+                                            style="cursor: pointer;">
+                                        <div class="card-body p-2">
+                                            <p class="mb-0 fw-bold">{{ product.name|truncatechars:18 }}</p>
+                                            <p class="mb-0 small text-muted">Stock: {{ product.inventory_stock }}</p>
+                                            <p class="mb-0 text-primary">${{ product.price|floatformat:0 }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="col-12"><p class="text-muted">No hay productos disponibles en esta sucursal.</p></div>
+                                {% endfor %}
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-5">
+                <div class="card receipt-summary shadow-lg">
+                    <div class="card-header bg-success text-white">
+                        Recibo de Venta
+                    </div>
+                    <div class="card-body p-0 d-flex flex-column">
+                        
+                        <ul id="receipt-items" class="list-group list-group-flush flex-grow-1 overflow-auto">
+                            <li class="list-group-item text-center text-muted py-5" id="empty-cart-message">
+                                Toca un producto para añadirlo al recibo.
+                            </li>
+                        </ul>
+                        
+                        <div class="p-3 border-top mt-auto">
+                            <div class="d-flex justify-content-between fw-bold fs-5 mb-2">
+                                <span>TOTAL:</span>
+                                <span id="receipt-total">$0</span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="payment-method" class="form-label">Método de Pago</label>
+                                <select id="payment-method" class="form-select" required>
+                                    <option value="EFECTIVO">Efectivo</option>
+                                    <option value="TARJETA">Tarjeta</option>
+                                    <option value="TRANSFERENCIA">Transferencia</option>
+                                </select>
+                            </div>
+                            
+                            <button id="finalize-sale-btn" class="btn btn-success btn-lg w-100" disabled>
+                                Finalizar Venta
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentReceipt = {}; // Almacena {product_id: {name, price, quantity, max_stock}}
+    let total = 0;
+    const receiptItemsList = document.getElementById('receipt-items');
+    const receiptTotalDisplay = document.getElementById('receipt-total');
+    const finalizeBtn = document.getElementById('finalize-sale-btn');
+    const emptyMessage = document.getElementById('empty-cart-message');
+    const branchId = '{{ branch.id|default:"null" }}'; 
+    const sellerId = '{{ user.id|default:"null" }}'; 
+    const apiSalesEndpoint = "{% url 'sales:sale-list-create' %}";
+
+    // Función para obtener el token JWT
+    function getJwtToken() {
+        return localStorage.getItem('access_token');
+    }
+
+    function updateReceipt() {
+        receiptItemsList.innerHTML = '';
+        total = 0;
+        let itemCount = 0;
+
+        for (const id in currentReceipt) {
+            const item = currentReceipt[id];
+            const subtotal = item.price * item.quantity;
+            total += subtotal;
+            itemCount++;
+
+            const listItem = document.createElement('li');
+            listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+            listItem.innerHTML = `
+                <div>
+                    <h6 class="my-0">${item.name}</h6>
+                    <small class="text-muted">x${item.quantity} @ $${item.price.toFixed(0)}</small>
+                </div>
+                <span class="fw-bold">$${subtotal.toFixed(0)}</span>
+                <button data-id="${id}" class="btn btn-sm btn-outline-danger remove-item">X</button>
+            `;
+            receiptItemsList.appendChild(listItem);
+        }
+
+        receiptTotalDisplay.textContent = `$${total.toFixed(0)}`;
+        finalizeBtn.disabled = itemCount === 0 || branchId === 'null';
+        emptyMessage.style.display = itemCount === 0 ? 'block' : 'none';
+
+        // Reasignar eventos a los botones de eliminar
+        document.querySelectorAll('.remove-item').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Si la cantidad es mayor a 1, solo se resta. Si es 1, se elimina del recibo.
+                const itemId = this.dataset.id;
+                if (currentReceipt[itemId].quantity > 1) {
+                    currentReceipt[itemId].quantity -= 1;
+                } else {
+                    delete currentReceipt[itemId];
+                }
+                updateReceipt();
+            });
+        });
+    }
+
+    // 1. Manejo de Clicks en el Grid de Productos
+    document.querySelectorAll('.product-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const price = parseFloat(this.dataset.price);
+            const name = this.dataset.name;
+            const maxStock = parseInt(this.dataset.stock);
+
+            if (branchId === 'null') {
+                alert('Debe tener una sucursal asignada para realizar ventas.');
+                return;
+            }
+
+            if (currentReceipt[id]) {
+                if (currentReceipt[id].quantity >= maxStock) {
+                    alert('Stock máximo alcanzado para este producto.');
+                    return;
+                }
+                currentReceipt[id].quantity += 1;
+            } else {
+                if (maxStock <= 0) {
+                    alert('No hay stock disponible para este producto.');
+                    return;
+                }
+                currentReceipt[id] = { name, price, quantity: 1, maxStock };
+            }
+            updateReceipt();
+        });
+    });
+
+    // 2. Manejo de la Finalización de Venta (API POST)
+    finalizeBtn.addEventListener('click', async function() {
+        if (branchId === 'null' || sellerId === 'null') return;
+
+        const paymentMethod = document.getElementById('payment-method').value;
+
+        const saleItems = Object.keys(currentReceipt).map(id => ({
+            product: parseInt(id),
+            quantity: currentReceipt[id].quantity,
+            price: currentReceipt[id].price 
+        }));
+
+        const saleData = {
+            branch: parseInt(branchId),
+            user: parseInt(sellerId), 
+            items: saleItems,
+            total: total,
+            payment_method: paymentMethod,
+            created_at: new Date().toISOString()
+        };
+        
+        // Determinar headers: Preferir JWT para la API
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + getJwtToken() 
+        };
+        
+        try {
+            const response = await fetch(apiSalesEndpoint, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(saleData)
+            });
+
+            const responseData = await response.json();
+
+            if (response.ok) {
+                alert(`✅ Venta registrada con éxito! Total: $${total.toFixed(0)}.`);
+                currentReceipt = {};
+                updateReceipt();
+                // Recomendación: Recargar la página para obtener la lista de productos con el stock actualizado
+                window.location.reload(); 
+            } else {
+                // Muestra errores de stock insuficiente o validación
+                const errorDetail = responseData.detail || responseData.items?.[0] || 'Error de procesamiento de API.';
+                alert(`❌ Error al registrar la venta: ${errorDetail}`);
+            }
+        } catch (error) {
+            alert('Error de red o desconocido. Revisa la consola.');
+            console.error('Sale POST Error:', error);
+        }
+    });
+
+    // 3. Manejo de Búsqueda (filtrado en el lado del cliente)
+    document.getElementById('product-search').addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        document.querySelectorAll('.product-item').forEach(item => {
+            // Asegúrate de incluir data-sku en tu template si lo usas en el JS
+            const name = item.dataset.name.toLowerCase();
+            const sku = item.dataset.sku ? item.dataset.sku.toLowerCase() : '';
+            const parentCol = item.parentElement;
+            
+            if (name.includes(query) || sku.includes(query)) {
+                parentCol.style.display = 'block';
+            } else {
+                parentCol.style.display = 'none';
+            }
+        });
+    });
+
+    updateReceipt(); // Inicializar
+</script>
+{% endblock %}

@@ -1,14 +1,30 @@
-<form method="post" action="{% url 'accounts:user_create_api' %}" class="needs-validation" novalidate> 
-    {% csrf_token %}
-    
-    <form method="post" action="{% url 'accounts:user_create_api' %}" class="needs-validation" novalidate> 
-                {% csrf_token %}
+{% extends 'base.html' %}
+{% block title %}Crear Nuevo Usuario{% endblock %}
 
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
+{% block content %}
+    <header class="mb-4">
+        <h1><i class="fas fa-user-plus"></i> Gestión de Personal</h1>
+        <p class="lead text-muted">
+            {% if user.role == 'super_admin' %}
+                Crea una nueva cuenta de Administrador Cliente (Tenant) y asigna su compañía.
+            {% elif user.role == 'admin_cliente' %}
+                Crea cuentas de Gerente o Vendedor para tu compañía: <strong>{{ user.company.name }}</strong>.
+            {% endif %}
+        </p>
+    </header>
+    <hr>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" action="{% url 'accounts:user_create_api' %}" class="needs-validation" novalidate> 
+                {% csrf_token %}
 
                 <div class="mb-3">
                     <label for="id_username" class="form-label">Nombre de Usuario (Login)</label>
@@ -39,6 +55,21 @@
                         {% endfor %}
                     </select>
                 </div>
+                
+                {% if user.role == 'admin_cliente' %}
+                    <div class="mb-3 border p-3 rounded bg-light" id="branch-selection-container">
+                        <label for="id_branch" class="form-label fw-bold">Sucursal a Asignar</label>
+                        <select name="branch" id="id_branch" class="form-select">
+                            <option value="">-- Seleccionar Sucursal --</option>
+                            {% for branch in branches %}
+                                <option value="{{ branch.id }}" {% if post_data.branch|default_if_none:""|slugify == branch.id|slugify %}selected{% endif %}>
+                                    {{ branch.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted" id="branch-help-text">Sucursal obligatoria para Gerentes y Vendedores.</small>
+                    </div>
+                {% endif %}
 
                 {% if user.role == 'super_admin' %}
                     <div class="mb-3 border p-3 rounded bg-light">
@@ -56,9 +87,11 @@
                 {% endif %}
 
                 <hr class="my-4">
-                <button class="btn btn-success btn-lg w-100" type="submit">
-                    <i class="fas fa-save"></i> Crear Nuevo Usuario
-                </button>
+                <div class="d-flex justify-content-end">
+                    <button class="btn btn-success btn-lg" type="submit">
+                        <i class="fas fa-save"></i> Crear Nuevo Usuario
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -68,13 +101,45 @@
 <script>
     (function () {
         'use strict'
-        var form = document.querySelector('.needs-validation')
-        form.addEventListener('submit', function (event) {
-            if (!form.checkValidity()) {
-                event.preventDefault()
-                event.stopPropagation()
+        var form = document.querySelector('.needs-validation');
+        var roleSelect = document.getElementById('id_role');
+        var branchSelect = document.getElementById('id_branch');
+
+        // Función para manejar la validación condicional de la sucursal
+        function updateBranchRequirement() {
+            if (!branchSelect) return; // Salir si no existe (es decir, si es Super Admin)
+            
+            const selectedRole = roleSelect.value;
+            const mandatoryRoles = ['gerente', 'vendedor'];
+
+            if (mandatoryRoles.includes(selectedRole)) {
+                branchSelect.required = true;
+                branchSelect.classList.add('is-required-conditional');
+            } else {
+                branchSelect.required = false;
+                branchSelect.classList.remove('is-required-conditional');
             }
-            form.classList.add('was-validated')
+        }
+
+        // Llamar la función al cargar la página y al cambiar el rol
+        updateBranchRequirement();
+        roleSelect.addEventListener('change', updateBranchRequirement);
+
+        // Validacion de formulario (incluye la validación condicional)
+        form.addEventListener('submit', function (event) {
+            
+            // Validar la Sucursal antes de la validación estándar de Bootstrap
+            if (branchSelect && branchSelect.required && branchSelect.value === "") {
+                branchSelect.setCustomValidity("Debe seleccionar una sucursal para este rol.");
+            } else if (branchSelect) {
+                 branchSelect.setCustomValidity("");
+            }
+
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
         }, false)
     })()
 </script>
