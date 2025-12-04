@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Crear Compañía y Admin Cliente{% endblock %}
+
+{% block content %}
+    <header class="mb-4">
+        <h1>🏗️ Alta de Cuenta Cliente</h1>
+        <p class="lead text-muted">A partir de la solicitud N° {{ request_data.id }}. Complete las credenciales para el Administrador de la Tienda.</p>
+    </header>
+    <hr>
+    
+    <div class="card p-4 shadow">
+        <form method="post" class="row g-3" action="{% url 'core:company_create_from_request' request_data.id %}">
+            {% csrf_token %}
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="col-md-6">
+                <label class="form-label text-primary">Nombre del Negocio (Solicitado)</label>
+                <input type="text" name="company_name" class="form-control" value="{{ request_data.company_name }}" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label text-primary">Plan Solicitado</label>
+                <input type="text" name="plan_name" class="form-control" value="{{ request_data.plan_name }}" readonly>
+            </div>
+            <input type="hidden" name="rut" value="{{ request_data.rut }}">
+
+
+            <h4 class="mt-5 border-top pt-3">Asignar Admin Cliente (Dueño de Tienda)</h4>
+            
+            <div class="col-md-6">
+                <label for="admin_username" class="form-label">Username (Login)</label>
+                <input type="text" name="admin_username" id="admin_username" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label for="admin_rut" class="form-label">RUT del Administrador</label>
+                <input type="text" name="admin_rut" id="admin_rut" class="form-control" placeholder="X.XXX.XXX-X" required>
+            </div>
+            <div class="col-md-6">
+                <label for="admin_email" class="form-label">Email del Administrador</label>
+                <input type="email" name="admin_email" id="admin_email" class="form-control" value="{{ request_data.contact_email }}" required>
+            </div>
+            <div class="col-md-6">
+                 <label class="form-label">Contraseña Temporal</label>
+                 <input type="text" class="form-control" value="Se generará al crear la cuenta" readonly>
+            </div>
+
+            <div class="col-12 mt-4">
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-check-circle"></i> Aceptar Solicitud y Crear Cuenta
+                </button>
+                <a href="{% url 'sales:request-list' %}" class="btn btn-outline-secondary btn-lg">Cancelar</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

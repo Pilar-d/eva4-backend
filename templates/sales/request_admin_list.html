@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Gestión de Solicitudes de Clientes{% endblock %}
+
+{% block content %}
+    <h1>📧 Solicitudes de Planes Pendientes</h1>
+    <p class="lead text-muted">Revisa las peticiones de nuevos clientes antes de crear la Compañía (Tenant).</p>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-warning">
+                <tr>
+                    <th>Empresa</th>
+                    <th>RUT</th>
+                    <th>Plan Solicitado</th>
+                    <th>Email</th>
+                    <th>Fecha</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in pending_requests %}
+                <tr>
+                    <td>{{ req.company_name }}</td>
+                    <td>{{ req.rut }}</td>
+                    <td><span class="badge bg-primary">{{ req.plan_name }}</span></td>
+                    <td>{{ req.contact_email }}</td>
+                    <td>{{ req.created_at|date:"Y-m-d" }}</td>
+                    <td>
+                        <a href="{% url 'core:company_create_from_request' req.id %}" class="btn btn-sm btn-success">
+                            <i class="fas fa-plus"></i> Crear Cuenta
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

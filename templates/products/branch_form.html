@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Crear Sucursal{% endblock %}
+
+{% block content %}
+    <header class="mb-4">
+        <h1><i class="fas fa-map-marker-alt"></i> Crear Nueva Sucursal</h1>
+        <p class="lead text-muted">Añade un nuevo punto de venta para tu compañía.</p>
+    </header>
+    <hr>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" action="{% url 'products:branch_create' %}" class="needs-validation" novalidate>
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="id_name" class="form-label">Nombre de la Sucursal</label>
+                    <input type="text" name="name" id="id_name" class="form-control" 
+                           value="{{ post_data.name|default:'' }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="id_address" class="form-label">Dirección Completa</label>
+                    <input type="text" name="address" id="id_address" class="form-control" 
+                           value="{{ post_data.address|default:'' }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="id_phone" class="form-label">Teléfono (Opcional)</label>
+                    <input type="text" name="phone" id="id_phone" class="form-control" 
+                           value="{{ post_data.phone|default:'' }}">
+                </div>
+
+                <hr class="my-4">
+                <button class="btn btn-primary btn-lg" type="submit">
+                    <i class="fas fa-save"></i> Guardar Sucursal
+                </button>
+                <a href="{% url 'products:branch_list' %}" class="btn btn-outline-secondary btn-lg">Cancelar</a>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        'use strict'
+        var form = document.querySelector('.needs-validation')
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })()
+</script>
+{% endblock %}

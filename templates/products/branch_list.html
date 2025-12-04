@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Sucursales{% endblock %}
+
+{% block content %}
+    <header class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📍 Sucursales (Puntos de Venta)</h1>
+        
+        {% if branch_count < max_branches %}
+            <a href="{% url 'products:branch_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Añadir Sucursal</a>
+        {% else %}
+            <button class="btn btn-danger" disabled>Límite de {{ max_branches }} Sucursales Alcanzado</button>
+        {% endif %}
+    </header>
+    
+    <div class="alert alert-info py-2">
+        Límite de Sucursales por Plan: <strong>{{ branch_count }} / {{ max_branches }}</strong> 
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if branches %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Dirección</th>
+                    <th>Teléfono</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for branch in branches %}
+                <tr>
+                    <td><strong>{{ branch.name }}</strong></td>
+                    <td>{{ branch.address }}</td>
+                    <td>{{ branch.phone }}</td>
+                    <td>
+                        <a href="{% url 'products:inventory_list' %}" class="btn btn-sm btn-info" title="Ver Inventario"><i class="fas fa-warehouse"></i></a>
+                        <a href="{% url 'products:branch_update' branch.id %}" class="btn btn-sm btn-warning" title="Editar"><i class="fas fa-edit"></i></a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4">No hay sucursales registradas para esta compañía.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="alert alert-secondary">
+            No se han registrado sucursales. Haz clic en "Añadir Sucursal" para empezar.
+        </div>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Formulario Proveedor{% endblock %}
+
+{% block content %}
+    <h1>{% if form.instance.pk %}Editar Proveedor{% else %}Registrar Proveedor{% endif %}</h1>
+    <hr>
+    
+    <form method="post" class="row g-3">
+        {% csrf_token %}
+
+        {% if form.errors %}
+            <div class="alert alert-danger">{{ form.errors }}</div>
+        {% endif %}
+
+        <div class="col-md-6">
+            <label for="{{ form.name.id_for_label }}" class="form-label">Nombre</label>
+            {{ form.name }}
+        </div>
+        
+        <div class="col-md-6">
+            <label for="{{ form.rut.id_for_label }}" class="form-label">RUT (Validación Chilena)</label>
+            {{ form.rut }}
+        </div>
+
+        <div class="col-12">
+            <label for="{{ form.contact.id_for_label }}" class="form-label">Contacto / Teléfono</label>
+            {{ form.contact }}
+        </div>
+
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary btn-lg">Guardar</button>
+            <a href="{% url 'products:supplier_list' %}" class="btn btn-outline-secondary btn-lg">Volver</a>
+        </div>
+    </form>
+{% endblock %}

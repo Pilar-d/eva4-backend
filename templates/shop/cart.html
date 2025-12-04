@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Mi Carrito{% endblock %}
+
+{% block content %}
+    <h1>🛒 Carrito de Compras</h1>
+    {% if cart_items %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Precio Unitario</th>
+                    <th>Cantidad</th>
+                    <th>Subtotal</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td>${{ item.product.price|floatformat:0 }}</td>
+                    <td>
+                        <input type="number" value="{{ item.quantity }}" min="1" style="width: 70px;" class="form-control form-control-sm d-inline">
+                    </td>
+                    <td>${{ item.subtotal|floatformat:0 }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger">Eliminar</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="text-end mt-4">
+            <h3>Total del Carrito: <span class="text-primary">${{ cart_total|floatformat:0 }}</span></h3>
+            <a href="{% url 'shop:checkout' %}" class="btn btn-warning btn-lg mt-3">Proceder al Checkout</a>
+        </div>
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+            Tu carrito está vacío. ¡Añade algunos productos!
+        </div>
+        <a href="{% url 'shop:catalogo' %}" class="btn btn-primary">Ver Catálogo</a>
+    {% endif %}
+
+{% endblock %}

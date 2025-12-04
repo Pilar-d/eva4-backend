@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Gestión de Suscripciones{% endblock %}
+
+{% block content %}
+    <h1>📋 Planes de Suscripción</h1>
+    <p class="lead text-muted">Asigna el plan y controla los límites de funcionalidades (Sucursales, etc.)</p>
+    <hr>
+
+    {% if company %}
+        <div class="alert alert-info">
+            Gestión de Plan para: <strong>{{ company.name }}</strong> (RUT: {{ company.rut }})
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="card p-4 shadow-sm">
+            <h5>Asignar/Actualizar Plan</h5>
+            <form method="post" action="{% url 'core:subscription_detail' company.id %}">
+                {% csrf_token %}
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="id_plan_name" class="form-label">Plan</label>
+                        <select name="plan_name" id="id_plan_name" class="form-select" required>
+                            <option value="">Selecciona un plan</option>
+                            {% for code, name in plan_choices %}
+                                <option value="{{ code }}" {% if current_plan_code == code %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-success w-100"><i class="fas fa-check"></i> Activar/Cambiar Plan</button>
+                    </div>
+                </div>
+            </form>
+            
+            <h6 class="mt-4">Estado Actual:</h6>
+            {% with sub=company.subscription %}
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">Plan: <strong>{{ sub.get_plan_name_display|default:"Ninguno" }}</strong></li>
+                <li class="list-group-item">Activo: 
+                    {% if sub.active %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}
+                </li>
+                <li class="list-group-item">Fecha Fin: <strong>{{ sub.end_date|default:"N/A" }}</strong></li>
+                <li class="list-group-item">Máx. Sucursales: <strong>{{ sub.max_branches|default:"0" }}</strong></li>
+            </ul>
+            {% endwith %}
+            
+            <div class="mt-4">
+                <a href="{% url 'core:company_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver al Listado de Clientes
+                </a>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-danger">No se especificó la compañía. Regresa al listado.</div>
+    {% endif %}
+{% endblock %}

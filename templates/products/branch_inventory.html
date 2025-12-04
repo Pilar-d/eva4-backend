@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Inventario por Sucursal{% endblock %}
+
+{% block content %}
+    <h1>Inventario Detallado por Sucursal</h1>
+    <p class="lead text-muted">Consulta el stock actual de productos en cada punto de venta de tu compañía.</p>
+
+    ---
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Seleccionar Sucursal</h5>
+            <form method="get" class="row g-3 align-items-center">
+                <div class="col-md-8">
+                    <label for="branch_select" class="visually-hidden">Sucursal</label>
+                    <select name="branch_id" id="branch_select" class="form-select" required>
+                        <option value="">-- Elige una Sucursal --</option>
+                        
+                        {% for branch in branches %}
+                            <option value="{{ branch.id }}" {% if branch.id|slugify == selected_branch.id|slugify %}selected{% endif %}>
+                                {{ branch.name }} ({{ branch.address|truncatechars:30 }})
+                            </option>
+                        {% empty %}
+                            <option value="" disabled>No hay sucursales registradas.</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">Cargar Inventario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {% if selected_branch %}
+        <h2 class="mt-5 mb-3">Stock en: {{ selected_branch.name }}</h2>
+
+        {% if inventory_items %}
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>SKU</th>
+                    <th>Producto</th>
+                    <th>Stock Actual</th>
+                    <th>Punto de Reorden</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in inventory_items %}
+                <tr>
+                    <td>{{ item.product.sku }}</td>
+                    <td><a href="{% url 'products:product_detail' item.product.id %}">{{ item.product.name }}</a></td>
+                    
+                    <td>
+                        <span class="fw-bold 
+                            {% if item.stock <= item.reorder_point %}text-danger{% elif item.stock < 10 %}text-warning{% else %}text-success{% endif %}">
+                            {{ item.stock }}
+                        </span>
+                    </td>
+                    <td>{{ item.reorder_point }}</td>
+                    <td>
+                        {% if item.stock <= item.reorder_point %}
+                            <span class="badge bg-danger">¡Reordenar!</span>
+                        {% else %}
+                            <span class="badge bg-success">Normal</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary btn-adjust-stock" data-product-id="{{ item.product.id }}">
+                            Ajustar Stock
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% else %}
+            <div class="alert alert-warning">
+                No se encontraron productos en el inventario de **{{ selected_branch.name }}**.
+            </div>
+        {% endif %}
+    {% elif branches and not selected_branch %}
+        <div class="alert alert-info">
+            Por favor, selecciona una sucursal en el menú de arriba para ver el inventario.
+        </div>
+    {% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.querySelectorAll('.btn-adjust-stock').forEach(button => {
+        button.addEventListener('click', function() {
+            const productId = this.dataset.productId;
+            const branchId = document.getElementById('branch_select').value;
+            
+            // Simulación de formulario de ajuste de stock
+            const adjustment = prompt(`Ajustar stock para Producto ID ${productId} (Sucursal ${branchId}). Ingresa el cambio (+5, -2):`);
+            
+            if (adjustment) {
+                console.log(`Enviando ajuste de ${adjustment} al API /api/inventory/adjust/`);
+                alert('Ajuste de stock simulado enviado a la API. Se requiere JWT.');
+                
+                // (Implementación real: Petición POST con JWT a /api/inventory/adjust/ 
+                // con branch_id, product_id, y adjustment_quantity)
+            }
+        });
+    });
+</script>
+{% endblock %}

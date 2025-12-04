@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}{{ product.name }} - Detalle{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-5">
+            <img src="{% static 'images/placeholder.jpg' %}" class="img-fluid rounded" alt="Imagen de {{ product.name }}">
+        </div>
+        <div class="col-md-7">
+            <h1>{{ product.name }}</h1>
+            <p class="lead text-primary">${{ product.price|floatformat:0 }}</p>
+
+            <h5 class="mt-4">Descripción</h5>
+            <p>{{ product.description|default:"No hay descripción disponible." }}</p>
+
+            <h5 class="mt-4">Detalles Técnicos</h5>
+            <ul>
+                <li>SKU: <strong>{{ product.sku }}</strong></li>
+                <li>Categoría: <strong>{{ product.category }}</strong></li>
+                </ul>
+
+            <div class="input-group mb-3 mt-4" style="max-width: 200px;">
+                <input type="number" id="quantity" class="form-control text-center" value="1" min="1" max="100" required>
+            </div>
+            
+            <button id="add-to-cart-detail" class="btn btn-lg btn-success">
+                Añadir al Carrito
+            </button>
+            <a href="{% url 'shop:catalogo' %}" class="btn btn-outline-secondary btn-lg">Volver al Catálogo</a>
+
+        </div>
+    </div>
+{% endblock %}

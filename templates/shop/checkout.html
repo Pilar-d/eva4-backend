@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Checkout y Confirmación{% endblock %}
+
+{% block content %}
+    <h1>Finalizar Compra</h1>
+    <p class="lead">Confirma tus datos y procesa el pedido. Esto generará la Order y vaciará el stock[cite: 176].</p>
+
+    <div class="row">
+        <div class="col-md-7 order-md-2 mb-4">
+            <h4 class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-muted">Resumen del Pedido</span>
+                <span class="badge bg-secondary rounded-pill">{{ cart_item_count }}</span>
+            </h4>
+            <ul class="list-group mb-3">
+                {% for item in cart_items %}
+                <li class="list-group-item d-flex justify-content-between lh-sm">
+                    <div>
+                        <h6 class="my-0">{{ item.product.name }} (x{{ item.quantity }})</h6>
+                        <small class="text-muted">SKU: {{ item.product.sku }}</small>
+                    </div>
+                    <span class="text-muted">${{ item.subtotal|floatformat:0 }}</span>
+                </li>
+                {% endfor %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total (CLP)</span>
+                    <strong>${{ cart_total|floatformat:0 }}</strong>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="col-md-5 order-md-1">
+            <h4 class="mb-3">Información del Cliente</h4>
+            <form id="checkout-form">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label for="name" class="form-label">Nombre Completo</label>
+                        <input type="text" class="form-control" id="name" placeholder="Tu Nombre" required value="{{ user.get_full_name|default:'' }}">
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" placeholder="you@example.com" required value="{{ user.email|default:'' }}">
+                    </div>
+                </div>
+                
+                <h4 class="mb-3 mt-4">Pago y Envío</h4>
+                <hr class="my-4">
+                <button class="btn btn-primary btn-lg w-100" type="submit">
+                    Completar Pedido (POST API Checkout)
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('checkout-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Simulación de la solicitud al endpoint /api/cart/checkout/
+        console.log('Enviando solicitud de checkout...');
+        
+        // Aquí se enviaría la solicitud POST a /api/cart/checkout/ con los datos del formulario
+        // Si es exitoso, redirigiría a una página de confirmación.
+
+        alert('Checkout procesado. Se ha generado la Order y vaciado el stock (API POST).');
+        window.location.href = "{% url 'shop:catalogo' %}"; // Redirigir al catálogo
+    });
+</script>
+{% endblock %}

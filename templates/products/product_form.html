@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}
+    {% if product %}Editar Producto{% else %}Crear Producto{% endif %}
+{% endblock %}
+
+{% block content %}
+    <header class="mb-4">
+        <h1>
+            {% if product %}
+                <i class="fas fa-edit"></i> Editar {{ product.name|default:'Producto' }}
+            {% else %}
+                <i class="fas fa-plus-square"></i> Crear Nuevo Producto
+            {% endif %}
+        </h1>
+    </header>
+    <hr>
+    
+    <form method="post" action="{% if product %}{% url 'products:product_update' product.pk %}{% else %}{% url 'products:product_create' %}{% endif %}" class="needs-validation" novalidate>
+        {% csrf_token %}
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row g-3">
+            
+            <div class="col-md-4">
+                <label for="id_sku" class="form-label">SKU</label>
+                <input type="text" name="sku" id="id_sku" class="form-control" 
+                       value="{% if post_data.sku %}{{ post_data.sku }}{% elif product %}{{ product.sku }}{% endif %}" 
+                       required>
+            </div>
+            
+            <div class="col-md-8">
+                <label for="id_name" class="form-label">Nombre</label>
+                <input type="text" name="name" id="id_name" class="form-control" 
+                       value="{% if post_data.name %}{{ post_data.name }}{% elif product %}{{ product.name }}{% endif %}" 
+                       required>
+            </div>
+            
+            <div class="col-md-6">
+                <label for="id_category" class="form-label">Categoría</label>
+                <select name="category" id="id_category" class="form-select" required>
+                    <option value="">-- Seleccionar Categoría --</option>
+                    {% for code, name in category_choices %}
+                        {% if post_data.category == code or product.category == code %}
+                            <option value="{{ code }}" selected>{{ name }}</option>
+                        {% else %}
+                            <option value="{{ code }}">{{ name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                </div>
+            
+            <div class="col-md-3">
+                <label for="id_price" class="form-label">Precio de Venta ($\ge 0$)</label>
+                <input type="number" name="price" id="id_price" class="form-control" 
+                       value="{% if post_data.price %}{{ post_data.price }}{% elif product %}{{ product.price }}{% endif %}"
+                       step="0.01" min="0" required>
+            </div>
+            
+             <div class="col-md-3">
+                <label for="id_cost" class="form-label">Costo (Compra)</label>
+                <input type="number" name="cost" id="id_cost" class="form-control"
+                       value="{% if post_data.cost %}{{ post_data.cost }}{% elif product %}{{ product.cost }}{% endif %}"
+                       step="0.01" min="0" required>
+            </div>
+
+            <div class="col-12">
+                <label for="id_description" class="form-label">Descripción</label>
+                <textarea name="description" id="id_description" class="form-control" rows="3">{% if post_data.description %}{{ post_data.description }}{% elif product %}{{ product.description }}{% endif %}</textarea>
+            </div>
+            
+        </div>
+
+        <hr class="my-4">
+        <div class="d-flex justify-content-end gap-2">
+            <a href="{% url 'products:product_list' %}" class="btn btn-outline-secondary btn-lg">Cancelar</a>
+            <button class="btn btn-primary btn-lg" type="submit">
+                <i class="fas fa-save"></i> {% if product %}Guardar Cambios{% else %}Crear Producto{% endif %}
+            </button>
+        </div>
+    </form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        'use strict'
+        var form = document.querySelector('.needs-validation')
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })()
+</script>
+{% endblock %}

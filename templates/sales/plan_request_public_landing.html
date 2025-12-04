@@ -1,0 +1,139 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TemucoSoft: POS + E-commerce Solutions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        .pricing-card-title {
+            font-size: 2.5rem;
+        }
+        .header-bg {
+            background-color: #343a40; /* Dark gray for the main content background */
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="#top">TemucoSoft S.A.</a>
+            <div class="collapse navbar-collapse" id="navbarContent">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="#planes">Planes</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#contacto">Contacto</a></li>
+                </ul>
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="btn btn-sm btn-warning" href="{% url 'dashboard' %}"><i class="fas fa-tachometer-alt"></i> Ir al Dashboard</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="btn btn-sm btn-outline-light" href="{% url 'login' %}"><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <section id="top" class="header-bg">
+        <div class="container text-center">
+            <h1 class="display-4">Soluciones POS + E-commerce para PYMES</h1>
+            <p class="lead">
+                Desarrollo & Diseño "TemucoSoft S.A." ofrece soluciones modulares de gestión de inventario, proveedores, y sucursales, diseñadas para tiendas, farmacias y pequeños supermercados.
+            </p>
+            <a href="#planes" class="btn btn-primary btn-lg mt-3">Ver Planes y Precios</a>
+        </div>
+    </section>
+
+    <main class="container">
+        
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <section id="planes" class="mb-5">
+            <h2 class="text-center mb-4"><i class="fas fa-rocket text-primary"></i> Planes de Suscripción (Modelo SaaS)</h2>
+            <p class="text-center text-muted">Todos los planes incluyen gestión de inventario, proveedores y control de acceso por roles.</p>
+            
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for plan in plans %}
+                <div class="col">
+                    <div class="card h-100 shadow-lg border-{{ plan.color }}">
+                        <div class="card-header bg-{{ plan.color }} text-white text-center">
+                            <h4 class="my-0 font-weight-normal">{{ plan.name }}</h4>
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                            <h1 class="card-title pricing-card-title">${{ plan.price }} <small class="text-muted fw-light">/ mes</small></h1>
+                            <ul class="list-unstyled mt-3 mb-4 flex-grow-1">
+                                <li><i class="fas fa-check text-success"></i> **{{ plan.options.ecom }} Opciones de E-commerce**</li>
+                                <li><i class="fas fa-check text-success"></i> Límite de {{ plan.options.branches }} Sucursales</li>
+                                <li><i class="fas fa-check text-success"></i> {{ plan.options.reports }} Reportes</li>
+                                <li><i class="fas fa-check text-success"></i> Gestión de Inventario</li>
+                                <li><i class="fas fa-check text-success"></i> Autenticación JWT</li>
+                            </ul>
+                            <a href="#contacto" class="btn btn-lg btn-{{ plan.color }} mt-auto w-100">Solicitar Plan {{ plan.name }}</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section id="contacto" class="card p-5 shadow-lg mb-5 border-info">
+            <h2 class="mb-4 text-center"><i class="fas fa-headset text-info"></i> Contacto y Solicitud de Contratación</h2>
+            <p class="text-center lead">
+                Mande una solicitud para que nuestro equipo pueda aceptarla y crear su cuenta con el plan seleccionado.
+            </p>
+            <form method="post" action="{% url 'shop:request_submit' %}" id="request-form" class="row g-3">
+                {% csrf_token %}
+                
+                <div class="col-md-6">
+                    <label for="id_company_name" class="form-label">Nombre de su Negocio</label>
+                    <input type="text" name="company_name" id="id_company_name" class="form-control" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="id_contact_email" class="form-label">Email de Contacto</label>
+                    <input type="email" name="contact_email" id="id_contact_email" class="form-control" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="id_rut" class="form-label">RUT Empresa (para facturación)</label>
+                    <input type="text" name="rut" id="id_rut" class="form-control" placeholder="XX.XXX.XXX-X" required>
+                </div>
+                <div class="col-md-6">
+                     <label for="id_plan_select" class="form-label">Plan Deseado</label>
+                     <select id="id_plan_select" name="plan_name" class="form-select" required>
+                         <option value="">Seleccione un plan</option>
+                         <option value="BASICO">Básico</option>
+                         <option value="ESTANDAR">Estándar</option>
+                         <option value="PREMIUM">Premium</option>
+                     </select>
+                 </div>
+                <div class="col-12 text-center">
+                    <button type="submit" class="btn btn-info btn-lg mt-4 px-5">Enviar Solicitud</button>
+                </div>
+            </form>
+        </section>
+        
+    </main>
+
+    <footer class="bg-dark text-white text-center py-3 mt-5">
+        <p class="mb-0">© 2025 TemucoSoft S.A. | Soluciones modulares para PYMES.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
